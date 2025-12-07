@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'locator.dart';
 import 'services/logger_service.dart';
 import 'screens/main_screen.dart';
 
 void main() {
+  setupLocator();
   LogService.i('Application starting up...');
   runApp(const MainApp());
 }
