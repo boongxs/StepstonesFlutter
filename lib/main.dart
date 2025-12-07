@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/logger_service.dart';
+import 'screens/main_screen.dart';
 
 void main() {
   LogService.i('Application starting up...');
@@ -13,10 +14,19 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     LogService.d("Building MyApp widget");
 
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(child: Text('Hello!')),
+    return MaterialApp(
+      title: 'Stepstones',
+      theme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xFF282828),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
+
+        useMaterial3: true,
       ),
+
+      home: const MainScreen(),
     );
   }
 }

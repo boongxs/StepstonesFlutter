@@ -90,13 +90,13 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "stepstones_flt" "\0"
-            VALUE "FileVersion", VERSION_AS_STRING "\0"
+            VALUE "FileDescription", "Stepstones Media Manager" "\0"
+            VALUE "FileVersion", "1.0.0.1" "\0"
             VALUE "InternalName", "stepstones_flt" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "stepstones_flt.exe" "\0"
-            VALUE "ProductName", "stepstones_flt" "\0"
-            VALUE "ProductVersion", VERSION_AS_STRING "\0"
+            VALUE "OriginalFilename", "stepstones.exe" "\0"
+            VALUE "ProductName", "Stepstones" "\0"
+            VALUE "ProductVersion", "1.0.0.1" "\0"
         END
     END
     BLOCK "VarFileInfo"
