@@ -70,7 +70,7 @@ class MainScreen extends StatelessWidget {
                       ActionButton(
                         icon: Icons.upload_file, 
                         tooltip: "Upload File",
-                        onPressed: () => print("Upload File"),
+                        onPressed: vm.uploadFiles,
                       ),
 
                       const SizedBox(width: 10), // gap between 'Upload' and 'Refresh' buttons
