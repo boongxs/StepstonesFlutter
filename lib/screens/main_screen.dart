@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../locator.dart';
 import '../providers/main_provider.dart';
-import '../providers/upload_status_provider.dart';
 import '../widgets/action_button.dart';
 import '../widgets/upload_status_card.dart';
 

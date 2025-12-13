@@ -84,6 +84,8 @@ class MainProvider extends ChangeNotifier {
     {
       _totalItemCount = 0;
     }
+
+    notifyListeners();
   }
 
   /// serialized loop to process files one by one until the queue is empty
