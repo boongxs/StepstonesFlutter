@@ -89,7 +89,7 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
+            VALUE "CompanyName", "StepstonesFlt" "\0"
             VALUE "FileDescription", "Stepstones Media Manager" "\0"
             VALUE "FileVersion", "1.0.0.1" "\0"
             VALUE "InternalName", "stepstones_flt" "\0"
