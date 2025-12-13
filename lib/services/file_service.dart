@@ -1,45 +1,42 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path/path.dart' as p;
+import 'package:xxh3/xxh3.dart';
 import 'logger_service.dart';
+
+enum CopyResult { success, duplicate, failure }
 
 class FileService {
   // copies file with a callback for file's progress
-  Future<void> copyFileWithProgress(
+  Future<CopyResult> copyFileWithProgress(
     String sourcePath,
     String destFolder,
     Function(double) onProgress,
   ) async {
+    final tempFileName = '${DateTime.now().millisecondsSinceEpoch}_${p.basename(sourcePath)}.tmp';
+    final tempFilePath = p.join(destFolder, tempFileName);
+
     try {
       final sourceFile = File(sourcePath);
-      final fileName = p.basename(sourcePath);
-      final destPath = p.join(destFolder, fileName);
-
-      // check if file doesn't already exist in destFolder
-      if (await File(destPath).exists()) {
-        LogService.w("Skipping $fileName as it already exists in destination.");
-        onProgress(1.0);
-        return;
-      }
-
-      // 1. get file size for calculation
       final totalBytes = await sourceFile.length();
-      int bytesCopied = 0;
 
-      // 2. open streams
+      final hasher = XXH3State.create();
+
       final inputStream = sourceFile.openRead();
-      final outputSink = File(destPath).openWrite();
+      final outputSink = File(tempFilePath).openWrite();
+
+      int bytesCopied = 0;
 
       // 3. pipe data manually to track progress
       await inputStream.listen(
         (List<int> chunk) {
-          outputSink.add(chunk); // write chunk
+          hasher.update(Uint8List.fromList(chunk)); // feed hasher
+
+          outputSink.add(chunk); // write to disk
 
           // update progress
           bytesCopied += chunk.length;
-          final progress = bytesCopied / totalBytes;
-
-          // update UI
-          onProgress(progress);
+          onProgress(bytesCopied / totalBytes);
         },
         cancelOnError: true,
       ).asFuture();
@@ -48,10 +45,39 @@ class FileService {
       await outputSink.flush();
       await outputSink.close();
 
-      LogService.i("Copied $fileName");
+      final hashInt = hasher.digest();
+      final hashString = hashInt.toRadixString(16).toUpperCase();
+
+      final extension = p.extension(sourcePath);
+      final finalFileName = '$hashString$extension';
+      final finalDestPath = p.join(destFolder, finalFileName);
+
+      // check for duplicate
+      final finalFile = File(finalDestPath);
+      if (await finalFile.exists()) {
+        LogService.w('Duplicate detected: $finalFileName. Deleting temp file.');
+        await File(tempFilePath).delete();
+        
+        return CopyResult.duplicate;
+      }
+
+      // rename temp file to final name
+      await File(tempFilePath).rename(finalDestPath);
+      LogService.i("Uploaded: $finalFileName");
+
+      return CopyResult.success;
     } catch (e) {
       LogService.e('Error copying file from $sourcePath to $destFolder', e);
-      rethrow; // pass error up to count it as fail
+
+      // cleanup temp file if exists
+      try {
+        final tempFile = File(tempFilePath);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
+
+      return CopyResult.failure;
     }
   }
 

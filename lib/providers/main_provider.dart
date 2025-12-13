@@ -99,7 +99,7 @@ class MainProvider extends ChangeNotifier {
       statusProvider.updateCurrentFile(fileName, 0);
 
       // copy logic
-      await _fileService.copyFileWithProgress(
+      final result = await _fileService.copyFileWithProgress(
         sourcePath,
         _mediaFolderPath!,
         (percent) {
@@ -107,8 +107,17 @@ class MainProvider extends ChangeNotifier {
         }
       );
 
-      // mark done
-      statusProvider.completeFile();
+      switch (result) {
+        case CopyResult.success:
+          statusProvider.completeFile();
+          break;
+        case CopyResult.duplicate:
+          statusProvider.markDuplicate();
+          break;
+        case CopyResult.failure:
+          statusProvider.markFailed();
+          break;
+      }
     }
 
     // only when queue is empty we finish
