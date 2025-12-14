@@ -9,6 +9,7 @@ import '../locator.dart';
 import 'package:path/path.dart' as p;
 import 'package:drift/drift.dart' as drift;
 import '../data/app_database.dart';
+import 'dart:io';
 
 class MainProvider extends ChangeNotifier {
   final FolderPickerService _folderPickerService;
@@ -80,11 +81,67 @@ class MainProvider extends ChangeNotifier {
   {
     if (_mediaFolderPath == null) return;
 
+    // update count UI immediately
     final database = getIt<AppDatabase>();
-    final count = await database.getCountForFolder(_mediaFolderPath!);
-
-    _totalItemCount = count;
+    _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
     notifyListeners();
+
+    // perform sync check
+    // get DB files
+    final dbFiles = await database.getFilenamesInFolder(_mediaFolderPath!);
+    final dbFileSet = dbFiles.toSet();
+
+    // get disk files
+    final dir = Directory(_mediaFolderPath!);
+    if (!await dir.exists()) return;
+
+    // filter out only files
+    final diskFilesList = dir.listSync()
+        .whereType<File>()
+        .where((f) => !p.basename(f.path).endsWith('.tmp'))
+        .toList();
+    
+    // find orphans (on disk but not in DB)
+    final orphans = <String>[];
+    for (var file in diskFilesList) {
+      final name = p.basename(file.path);
+      if (!dbFileSet.contains(name)) {
+        orphans.add(file.path);
+      }
+    }
+
+    // find ghosts (in DB but not on disk)
+    final diskFileSet = diskFilesList.map((f) => p.basename(f.path)).toSet();
+    final ghosts = <String>[];
+    for (var dbName in dbFiles) {
+      if (!diskFileSet.contains(dbName)) {
+        ghosts.add(dbName);
+      }
+    }
+
+    // process ghosts
+    if (ghosts.isNotEmpty) {
+      LogService.i("Found ${ghosts.length} ghost records. Removing from DB...");
+      await database.deleteMediaItems(ghosts, _mediaFolderPath!);
+
+      // update count immediately after deletion
+      _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
+      notifyListeners();
+    }
+
+    // process orphans
+    if (orphans.isNotEmpty) {
+      LogService.i("Found ${orphans.length} unindexed files. Starting import...");
+      _uploadQueue.addAll(orphans);
+
+      // update UI status
+      final statusProvider = getIt<UploadStatusProvider>();
+      statusProvider.startUpload(orphans.length);
+
+      if (!_isUploading) {
+        _processUploadQueue();
+      }
+    }
   }
 
   /// serialized loop to process files one by one until the queue is empty
@@ -97,17 +154,23 @@ class MainProvider extends ChangeNotifier {
     while (_uploadQueue.isNotEmpty) {
       final sourcePath = _uploadQueue.removeAt(0);
       final fileName = p.basename(sourcePath);
+      final isImport = p.isWithin(_mediaFolderPath!, sourcePath);
 
       statusProvider.updateCurrentFile(fileName, 0);
+      CopyResponse response;
 
-      // copy & hash
-      final response = await _fileService.copyFileWithProgress(
-        sourcePath,
-        _mediaFolderPath!,
-        (percent) {
-          statusProvider.updateProgress(percent);
-        }
-      );
+      if (isImport) { // no need for copying (manually added files)
+        response = await _fileService.importFileWithProgress(
+          sourcePath,
+          (percent) => statusProvider.updateProgress(percent),
+        );
+      } else { // copy as well (upload button files)
+        response = await _fileService.copyFileWithProgress(
+          sourcePath,
+          _mediaFolderPath!,
+          (percent) => statusProvider.updateProgress(percent),
+        );
+      }
 
       // handle response and insert to DB
       switch (response.status) {

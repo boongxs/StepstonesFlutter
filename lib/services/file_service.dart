@@ -103,4 +103,62 @@ class FileService {
       return 0;
     }
   }
+
+  // hashes an existing file in the library and renames it to {hash}.ext
+  Future<CopyResponse> importFileWithProgress(
+    String filePath,
+    Function(double) onProgress,
+  ) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return CopyResponse(CopyResult.failure);
+      
+      final totalBytes = await file.length();
+      
+      // 1. hash the file
+      final hasher = XXH3State.create();
+      final inputStream = file.openRead();
+      
+      int bytesRead = 0;
+      
+      await inputStream.listen(
+        (List<int> chunk) {
+          hasher.update(Uint8List.fromList(chunk));
+          bytesRead += chunk.length;
+          onProgress(bytesRead / totalBytes);
+        },
+        cancelOnError: true,
+      ).asFuture();
+      
+      final hashInt = hasher.digest();
+      final hashString = hashInt.toRadixString(16).toUpperCase();
+      
+      // 2. determine target name
+      final folder = p.dirname(filePath);
+      final extension = p.extension(filePath);
+      final finalFileName = "$hashString$extension";
+      final finalPath = p.join(folder, finalFileName);
+      
+      // 3. check if it needs renaming
+      // case A: file is already named correctly
+      if (filePath == finalPath) {
+        return CopyResponse(CopyResult.success, hash: hashString, finalFileName: finalFileName);
+      }
+      
+      // case B: file is named "vacation.jpg" but file with its hash already exists (duplicate)
+      if (await File(finalPath).exists()) {
+        LogService.w("Duplicate import: $finalFileName already exists. Deleting source.");
+        await file.delete();
+        return CopyResponse(CopyResult.duplicate, hash: hashString, finalFileName: finalFileName);
+      }
+      
+      // case C: rename "vacation.jpg" to its hash
+      await file.rename(finalPath);
+      LogService.i("Renamed and imported: $finalFileName");
+      return CopyResponse(CopyResult.success, hash: hashString, finalFileName: finalFileName);
+    } catch (e) {
+      LogService.e("Failed to import $filePath", e);
+      return CopyResponse(CopyResult.failure);
+    }
+  }
 }

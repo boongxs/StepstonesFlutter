@@ -65,6 +65,23 @@ class AppDatabase extends _$AppDatabase {
     final result = await query.map((row) => row.read(countExp)).getSingle();
     return result ?? 0;
   }
+
+  // get list of all 'hashedFileName' in a folder
+  Future<List<String>> getFilenamesInFolder(String folderPath) {
+    final query = selectOnly(mediaItems)
+      ..addColumns([mediaItems.hashedFileName])
+      ..where(mediaItems.mediaFolderPath.equals(folderPath));
+    
+    return query.map((row) => row.read(mediaItems.hashedFileName)!).get();
+  }
+
+  // batch delete items
+  Future<int> deleteMediaItems(List<String> filenames, String folderPath) {
+    return (delete(mediaItems)
+      ..where((t) => t.mediaFolderPath.equals(folderPath))
+      ..where((t) => t.hashedFileName.isIn(filenames))
+    ).go();
+  }
 }
 
 // connection helper
