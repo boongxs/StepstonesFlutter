@@ -4,11 +4,19 @@ import 'package:path/path.dart' as p;
 import 'package:xxh3/xxh3.dart';
 import 'logger_service.dart';
 
+class CopyResponse {
+  final CopyResult status;
+  final String? hash;
+  final String? finalFileName;
+
+  CopyResponse(this.status, {this.hash, this.finalFileName});
+}
+
 enum CopyResult { success, duplicate, failure }
 
 class FileService {
   // copies file with a callback for file's progress
-  Future<CopyResult> copyFileWithProgress(
+  Future<CopyResponse> copyFileWithProgress(
     String sourcePath,
     String destFolder,
     Function(double) onProgress,
@@ -58,14 +66,14 @@ class FileService {
         LogService.w('Duplicate detected: $finalFileName. Deleting temp file.');
         await File(tempFilePath).delete();
         
-        return CopyResult.duplicate;
+        return CopyResponse(CopyResult.duplicate, hash: hashString, finalFileName: finalFileName);
       }
 
       // rename temp file to final name
       await File(tempFilePath).rename(finalDestPath);
       LogService.i("Uploaded: $finalFileName");
 
-      return CopyResult.success;
+      return CopyResponse(CopyResult.success, hash: hashString, finalFileName: finalFileName);
     } catch (e) {
       LogService.e('Error copying file from $sourcePath to $destFolder', e);
 
@@ -77,7 +85,7 @@ class FileService {
         }
       } catch (_) {}
 
-      return CopyResult.failure;
+      return CopyResponse(CopyResult.failure);
     }
   }
 

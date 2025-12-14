@@ -7,6 +7,8 @@ import '../services/file_service.dart';
 import 'upload_status_provider.dart';
 import '../locator.dart';
 import 'package:path/path.dart' as p;
+import 'package:drift/drift.dart' as drift;
+import '../data/app_database.dart';
 
 class MainProvider extends ChangeNotifier {
   final FolderPickerService _folderPickerService;
@@ -76,15 +78,12 @@ class MainProvider extends ChangeNotifier {
 
   Future<void> refreshFileCount() async 
   {
-    if (_mediaFolderPath != null) 
-    {
-      _totalItemCount = await _fileService.getFileCount(_mediaFolderPath!);
-    } 
-    else 
-    {
-      _totalItemCount = 0;
-    }
+    if (_mediaFolderPath == null) return;
 
+    final database = getIt<AppDatabase>();
+    final count = await database.getCountForFolder(_mediaFolderPath!);
+
+    _totalItemCount = count;
     notifyListeners();
   }
 
@@ -92,6 +91,7 @@ class MainProvider extends ChangeNotifier {
   Future<void> _processUploadQueue() async {
     _isUploading = true;
     final statusProvider = getIt<UploadStatusProvider>();
+    final database = getIt<AppDatabase>();
 
     // keep looping as long as there are files in the queue
     while (_uploadQueue.isNotEmpty) {
@@ -100,8 +100,8 @@ class MainProvider extends ChangeNotifier {
 
       statusProvider.updateCurrentFile(fileName, 0);
 
-      // copy logic
-      final result = await _fileService.copyFileWithProgress(
+      // copy & hash
+      final response = await _fileService.copyFileWithProgress(
         sourcePath,
         _mediaFolderPath!,
         (percent) {
@@ -109,13 +109,37 @@ class MainProvider extends ChangeNotifier {
         }
       );
 
-      switch (result) {
+      // handle response and insert to DB
+      switch (response.status) {
         case CopyResult.success:
-          statusProvider.completeFile();
+          try {
+            // create the database record to be inserted
+            final entry = MediaItemsCompanion(
+              fileHash: drift.Value(response.hash!),
+              hashedFileName: drift.Value(response.finalFileName!),
+              mediaFolderPath: drift.Value(_mediaFolderPath!),
+              originalFileName: drift.Value(fileName),
+              fileType: drift.Value(_inferFileType(p.extension(sourcePath))),
+              // defaults for now:
+              width: const drift.Value(0),
+              height: const drift.Value(0),
+              duration: const drift.Value(0),
+            );
+
+            // insert into SQLite
+            await database.insertMediaItem(entry);
+            LogService.i("DB record inserted for ${response.finalFileName}");
+            statusProvider.completeFile();
+          } catch (e) {
+            LogService.e("Failed to insert DB record", e);
+            statusProvider.markFailed();
+          }
           break;
+
         case CopyResult.duplicate:
           statusProvider.markDuplicate();
           break;
+
         case CopyResult.failure:
           statusProvider.markFailed();
           break;
@@ -129,5 +153,18 @@ class MainProvider extends ChangeNotifier {
 
     LogService.i('Queue empty. Upload batch complete.');
     notifyListeners();
+  }
+
+  // helper to determine file type
+  String _inferFileType(String extension) {
+    const images = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'};
+    const videos = {'.mp4', '.mov', '.avi', '.mkv', '.webm'};
+    const audio = {'.mp3', '.wav', '.flac', '.m4a'};
+
+    final ext = extension.toLowerCase();
+    if (images.contains(ext)) return 'image';
+    if (videos.contains(ext)) return 'video';
+    if (audio.contains(ext)) return 'audio';
+    return 'unknown';
   }
 }
