@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:drift/drift.dart' as drift;
 import '../data/app_database.dart';
 import 'dart:io';
+import 'dart:async';
 
 class MainProvider extends ChangeNotifier {
   final FolderPickerService _folderPickerService;
@@ -25,6 +26,16 @@ class MainProvider extends ChangeNotifier {
 
   final List<String> _uploadQueue = [];
   bool _isUploading = false;
+
+  bool _showSyncCard = false;
+  String _syncStatusText = "";
+  Timer? _syncTimer;
+
+  bool get showSyncCard => _showSyncCard;
+  String get syncStatusText => _syncStatusText;
+  
+  bool _isSyncingWorkInProgress = false;
+  bool get isSyncingWorkInProgress => _isSyncingWorkInProgress;
 
   MainProvider(
     this._folderPickerService, 
@@ -81,74 +92,101 @@ class MainProvider extends ChangeNotifier {
   {
     if (_mediaFolderPath == null) return;
 
-    // update count UI immediately
-    final database = getIt<AppDatabase>();
-    _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
+    // start sync state
+    _syncTimer?.cancel(); // cancel existing timer
+    _showSyncCard = true;
+    _isSyncingWorkInProgress = true;
+    _syncStatusText = "Synchronizing media folder...";
     notifyListeners();
 
-    // perform sync check
-    // get DB files
-    final dbFiles = await database.getFilenamesInFolder(_mediaFolderPath!);
-    final dbFileSet = dbFiles.toSet();
-
-    // get disk files
-    final dir = Directory(_mediaFolderPath!);
-    if (!await dir.exists()) return;
-
-    // filter out only files
-    final diskFilesList = dir.listSync()
-        .whereType<File>()
-        .where((f) => !p.basename(f.path).endsWith('.tmp'))
-        .toList();
-    
-    // find orphans (on disk but not in DB)
-    final orphans = <String>[];
-    for (var file in diskFilesList) {
-      final name = p.basename(file.path);
-      if (!dbFileSet.contains(name)) {
-        orphans.add(file.path);
-      }
-    }
-
-    // find ghosts (in DB but not on disk)
-    final diskFileSet = diskFilesList.map((f) => p.basename(f.path)).toSet();
-    final ghosts = <String>[];
-    for (var dbName in dbFiles) {
-      if (!diskFileSet.contains(dbName)) {
-        ghosts.add(dbName);
-      }
-    }
-
-    // process ghosts
-    if (ghosts.isNotEmpty) {
-      LogService.i("Found ${ghosts.length} ghost records. Removing from DB...");
-      await database.deleteMediaItems(ghosts, _mediaFolderPath!);
-
-      // update count immediately after deletion
+    try {
+      // update count UI immediately
+      final database = getIt<AppDatabase>();
       _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
       notifyListeners();
-    }
 
-    // process orphans
-    if (orphans.isNotEmpty) {
-      LogService.i("Found ${orphans.length} unindexed files. Starting import...");
-      _uploadQueue.addAll(orphans);
+      // perform sync check
+      // get DB files
+      final dbFiles = await database.getFilenamesInFolder(_mediaFolderPath!);
+      final dbFileSet = dbFiles.toSet();
 
-      // update UI status
-      final statusProvider = getIt<UploadStatusProvider>();
-      statusProvider.startUpload(orphans.length);
+      // get disk files
+      final dir = Directory(_mediaFolderPath!);
+      if (!await dir.exists()) return;
 
-      if (!_isUploading) {
-        _processUploadQueue();
+      // filter out only files
+      final diskFilesList = dir.listSync()
+          .whereType<File>()
+          .where((f) => !p.basename(f.path).endsWith('.tmp'))
+          .toList();
+      
+      // find orphans (on disk but not in DB)
+      final orphans = <String>[];
+      for (var file in diskFilesList) {
+        final name = p.basename(file.path);
+        if (!dbFileSet.contains(name)) {
+          orphans.add(file.path);
+        }
       }
+
+      // find ghosts (in DB but not on disk)
+      final diskFileSet = diskFilesList.map((f) => p.basename(f.path)).toSet();
+      final ghosts = <String>[];
+      for (var dbName in dbFiles) {
+        if (!diskFileSet.contains(dbName)) {
+          ghosts.add(dbName);
+        }
+      }
+
+      // process ghosts
+      if (ghosts.isNotEmpty) {
+        LogService.i("Found ${ghosts.length} ghost records. Removing from DB...");
+        await database.deleteMediaItems(ghosts, _mediaFolderPath!);
+
+        // update count immediately after deletion
+        _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
+        notifyListeners();
+      }
+
+      // process orphans
+      if (orphans.isNotEmpty) {
+        LogService.i("Found ${orphans.length} unindexed files. Syncing...");
+        _uploadQueue.addAll(orphans);
+
+        // if we are already uploading (user action), we just add to the queue
+        // if not, we start a "silent" process
+        if (!_isUploading) {
+          await _processUploadQueue(silent: true);
+        }
+      } else {
+        _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
+      }
+    } catch (e) {
+      LogService.e("Sync failed", e);
+      _syncStatusText = "Synchronization failed";
+    } finally {
+      // end sync state
+      _isSyncingWorkInProgress = false;
+      _syncStatusText = "Media folder synchronized";
+      notifyListeners();
+
+      // start 2 second lingering timer
+      _syncTimer = Timer(const Duration(seconds: 2), () {
+        _showSyncCard = false; // hide the card
+        notifyListeners();
+      });
     }
   }
 
   /// serialized loop to process files one by one until the queue is empty
-  Future<void> _processUploadQueue() async {
+  Future<void> _processUploadQueue({bool silent = false}) async {
     _isUploading = true;
     final statusProvider = getIt<UploadStatusProvider>();
     final database = getIt<AppDatabase>();
+
+    if (!silent) {
+      statusProvider.startUpload(_uploadQueue.length);
+    }
 
     // keep looping as long as there are files in the queue
     while (_uploadQueue.isNotEmpty) {
@@ -156,19 +194,25 @@ class MainProvider extends ChangeNotifier {
       final fileName = p.basename(sourcePath);
       final isImport = p.isWithin(_mediaFolderPath!, sourcePath);
 
-      statusProvider.updateCurrentFile(fileName, 0);
+      if (!silent) {
+        statusProvider.updateCurrentFile(fileName, 0);
+      }
       CopyResponse response;
 
       if (isImport) { // no need for copying (manually added files)
         response = await _fileService.importFileWithProgress(
           sourcePath,
-          (percent) => statusProvider.updateProgress(percent),
+          (percent) {
+            if (!silent) statusProvider.updateProgress(percent);
+          }
         );
       } else { // copy as well (upload button files)
         response = await _fileService.copyFileWithProgress(
           sourcePath,
           _mediaFolderPath!,
-          (percent) => statusProvider.updateProgress(percent),
+          (percent) {
+            if (!silent) statusProvider.updateProgress(percent);
+          }
         );
       }
 
@@ -192,28 +236,30 @@ class MainProvider extends ChangeNotifier {
             // insert into SQLite
             await database.insertMediaItem(entry);
             LogService.i("DB record inserted for ${response.finalFileName}");
-            statusProvider.completeFile();
+            if (!silent) statusProvider.completeFile();
           } catch (e) {
             LogService.e("Failed to insert DB record", e);
-            statusProvider.markFailed();
+            if (!silent) statusProvider.markFailed();
           }
           break;
 
         case CopyResult.duplicate:
-          statusProvider.markDuplicate();
+           if (!silent) statusProvider.markDuplicate();
           break;
 
         case CopyResult.failure:
-          statusProvider.markFailed();
+          if (!silent) statusProvider.markFailed();
           break;
       }
     }
 
-    // only when queue is empty we finish
-    await refreshFileCount();
-    statusProvider.finishUpload();
-    _isUploading = false;
+    await _refreshFileCountInner(database);
 
+    if (!silent) {
+      statusProvider.finishUpload();
+    }
+
+    _isUploading = false;
     LogService.i('Queue empty. Upload batch complete.');
     notifyListeners();
   }
@@ -229,5 +275,13 @@ class MainProvider extends ChangeNotifier {
     if (videos.contains(ext)) return 'video';
     if (audio.contains(ext)) return 'audio';
     return 'unknown';
+  }
+
+  // helper to avoid infinite recursion calling refreshFileCount()
+  Future<void> _refreshFileCountInner(AppDatabase db) async {
+    if (_mediaFolderPath != null) {
+      _totalItemCount = await db.getCountForFolder(_mediaFolderPath!);
+      notifyListeners();
+    }
   }
 }

@@ -4,6 +4,7 @@ import '../locator.dart';
 import '../providers/main_provider.dart';
 import '../widgets/action_button.dart';
 import '../widgets/upload_status_card.dart';
+import '../widgets/sync_status_card.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -150,7 +151,22 @@ class MainScreen extends StatelessWidget {
               ),
             ),
 
-            // --- LAYER 2: FLOATING UPLOAD STATUS CARD ---
+            // --- LAYER 2: SYNC STATUS CARD ---
+            Positioned(
+              bottom: 20,
+              right: 20,
+              child: Consumer<MainProvider>(
+                builder: (context, vm, _) {
+                  return SyncStatusCard(
+                    text: vm.syncStatusText,
+                    isVisible: vm.showSyncCard,
+                    isLoading: vm.isSyncingWorkInProgress
+                  );
+                },
+              ),
+            ),
+
+            // --- LAYER 3: FLOATING UPLOAD STATUS CARD ---
             const Positioned(
               right: 20,
               bottom: 20,
