@@ -11,6 +11,7 @@ import 'package:drift/drift.dart' as drift;
 import '../data/app_database.dart';
 import 'dart:io';
 import 'dart:async';
+import '../utils/media_helper.dart';
 
 class MainProvider extends ChangeNotifier {
   final FolderPickerService _folderPickerService;
@@ -226,7 +227,7 @@ class MainProvider extends ChangeNotifier {
               hashedFileName: drift.Value(response.finalFileName!),
               mediaFolderPath: drift.Value(_mediaFolderPath!),
               originalFileName: drift.Value(fileName),
-              fileType: drift.Value(_inferFileType(p.extension(sourcePath))),
+              fileType: drift.Value(await MediaHelper.inferFileType(sourcePath)),
               // defaults for now:
               width: const drift.Value(0),
               height: const drift.Value(0),
@@ -262,19 +263,6 @@ class MainProvider extends ChangeNotifier {
     _isUploading = false;
     LogService.i('Queue empty. Upload batch complete.');
     notifyListeners();
-  }
-
-  // helper to determine file type
-  String _inferFileType(String extension) {
-    const images = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'};
-    const videos = {'.mp4', '.mov', '.avi', '.mkv', '.webm'};
-    const audio = {'.mp3', '.wav', '.flac', '.m4a'};
-
-    final ext = extension.toLowerCase();
-    if (images.contains(ext)) return 'image';
-    if (videos.contains(ext)) return 'video';
-    if (audio.contains(ext)) return 'audio';
-    return 'unknown';
   }
 
   // helper to avoid infinite recursion calling refreshFileCount()
