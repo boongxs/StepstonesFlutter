@@ -264,10 +264,6 @@ class MainProvider extends ChangeNotifier {
     final statusProvider = getIt<UploadStatusProvider>();
     final database = getIt<AppDatabase>();
 
-    if (!silent) {
-      statusProvider.startUpload(_uploadQueue.length);
-    }
-
     // keep looping as long as there are files in the queue
     while (_uploadQueue.isNotEmpty) {
       final sourcePath = _uploadQueue.removeAt(0);
