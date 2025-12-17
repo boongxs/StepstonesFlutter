@@ -5,6 +5,7 @@ import '../providers/main_provider.dart';
 import '../widgets/action_button.dart';
 import '../widgets/upload_status_card.dart';
 import '../widgets/sync_status_card.dart';
+import '../widgets/media_grid.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -102,50 +103,8 @@ class MainScreen extends StatelessWidget {
 
                     // --- MAIN CONTENT AREA (Displays Path & Count) ---
                     Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                        decoration: BoxDecoration(
-                          color: Colors.black12,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          // Consumer listens to MainProvider to update Path and Count
-                          child: Consumer<MainProvider>(
-                            builder: (context, vm, child) {
-                              if (vm.mediaFolderPath == null) {
-                                return const Text(
-                                  "No media folder selected.\nClick the Folder icon to begin.",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      color: Colors.grey, fontSize: 18),
-                                );
-                              }
-
-                              return Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    vm.mediaFolderPath!,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                        color: Colors.grey, fontSize: 18),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    "Total items: ${vm.totalItemCount}",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    )
+                      child: MediaGrid(),
+                    ),
                   ],
                 ),
               ),

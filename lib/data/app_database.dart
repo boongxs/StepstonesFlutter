@@ -82,6 +82,14 @@ class AppDatabase extends _$AppDatabase {
       ..where((t) => t.hashedFileName.isIn(filenames))
     ).go();
   }
+
+  // fetch a specific page of items (data virtualization)
+  Future<List<MediaItem>> getPagedMediaItems(int limit, int offset) {
+    return (select(mediaItems)
+      ..orderBy([(t) => OrderingTerm(expression: t.id, mode: OrderingMode.asc)])
+      ..limit(limit, offset: offset)
+    ).get();
+  }
 }
 
 // connection helper

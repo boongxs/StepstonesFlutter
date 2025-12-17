@@ -38,6 +38,13 @@ class MainProvider extends ChangeNotifier {
   bool _isSyncingWorkInProgress = false;
   bool get isSyncingWorkInProgress => _isSyncingWorkInProgress;
 
+  // virtualization / cache state
+  static const int _pageSize = 50;
+  static const int _maxPagesInMemory = 4;
+  final Map<int, List<MediaItem>> _pageCache = {};
+  final List<int> _pageUsageHistory = []; //usage history: first element -> oldest, last element -> newest
+  final Set<int> _pagesBeingFetched = {}; // prevent duplicate fetches
+
   MainProvider(
     this._folderPickerService, 
     this._settingsService,
@@ -160,7 +167,9 @@ class MainProvider extends ChangeNotifier {
           await _processUploadQueue(silent: true);
         }
       } else {
+        _invalidateCache();
         _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
+        notifyListeners();
       }
     } catch (e) {
       LogService.e("Sync failed", e);
@@ -177,6 +186,75 @@ class MainProvider extends ChangeNotifier {
         notifyListeners();
       });
     }
+  }
+
+  // public accessor (used by UI)
+  MediaItem? getItem(int index) {
+    final pageIndex = index ~/ _pageSize;
+    final indexInPage = index % _pageSize;
+
+    // check if we have the page
+    if (_pageCache.containsKey(pageIndex)) {
+      // mark as recently used
+      _touchPage(pageIndex);
+
+      final page = _pageCache[pageIndex]!;
+      // safety check for bounds
+      if (indexInPage < page.length) {
+        return page[indexInPage];
+      }
+    }
+
+    // cache miss: trigger fetch
+    _fetchPage(pageIndex);
+
+    // return null so UI shows "loading..."
+    return null;
+  }
+
+  void _touchPage(int pageIndex) {
+    _pageUsageHistory.remove(pageIndex);
+    _pageUsageHistory.add(pageIndex);
+  }
+
+  // internal fetcher
+  void _fetchPage(int pageIndex) {
+    if (_pagesBeingFetched.contains(pageIndex)) return;
+
+    _pagesBeingFetched.add(pageIndex);
+    final db = getIt<AppDatabase>();
+    final offset = pageIndex * _pageSize;
+
+    db.getPagedMediaItems(_pageSize, offset).then((items) {
+      if (items.isEmpty && _totalItemCount > 0) {
+        // edge case: DB count might be out of sync, but ignore for now
+        _pagesBeingFetched.remove(pageIndex);
+        return;
+      }
+
+      // store data
+      _pageCache[pageIndex] = items;
+      _touchPage(pageIndex);
+      _pagesBeingFetched.remove(pageIndex);
+
+      // eviction: if too many pages, drop the oldest
+      if (_pageUsageHistory.length > _maxPagesInMemory) {
+        final oldestPageIndex = _pageUsageHistory.removeAt(0);
+        _pageCache.remove(oldestPageIndex);
+      }
+      notifyListeners();
+    }).catchError((e) {
+      LogService.e("Fetch failed for page $pageIndex", e);
+      _pagesBeingFetched.remove(pageIndex);
+    });
+  }
+
+  // cache clearing
+  // called whenever data changes
+  void _invalidateCache() {
+    _pageCache.clear();
+    _pageUsageHistory.clear();
+    _pagesBeingFetched.clear();
   }
 
   /// serialized loop to process files one by one until the queue is empty
@@ -254,6 +332,7 @@ class MainProvider extends ChangeNotifier {
       }
     }
 
+    _invalidateCache();
     await _refreshFileCountInner(database);
 
     if (!silent) {
