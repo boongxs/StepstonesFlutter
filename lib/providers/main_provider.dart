@@ -12,6 +12,7 @@ import '../data/app_database.dart';
 import 'dart:io';
 import 'dart:async';
 import '../utils/media_helper.dart';
+import '../utils/metadata_helper.dart';
 
 class MainProvider extends ChangeNotifier {
   final FolderPickerService _folderPickerService;
@@ -299,17 +300,19 @@ class MainProvider extends ChangeNotifier {
       switch (response.status) {
         case CopyResult.success:
           try {
+            final type = await MediaHelper.inferFileType(sourcePath); // get file type
+            final metadata = await MetadataHelper.extractMetadata(sourcePath, type); // get width, height, duration
+
             // create the database record to be inserted
             final entry = MediaItemsCompanion(
               fileHash: drift.Value(response.hash!),
               hashedFileName: drift.Value(response.finalFileName!),
               mediaFolderPath: drift.Value(_mediaFolderPath!),
               originalFileName: drift.Value(fileName),
-              fileType: drift.Value(await MediaHelper.inferFileType(sourcePath)),
-              // defaults for now:
-              width: const drift.Value(0),
-              height: const drift.Value(0),
-              duration: const drift.Value(0),
+              fileType: drift.Value(type),
+              width: drift.Value(metadata.width),
+              height: drift.Value(metadata.height),
+              duration: drift.Value(metadata.durationMs),
             );
 
             // insert into SQLite
