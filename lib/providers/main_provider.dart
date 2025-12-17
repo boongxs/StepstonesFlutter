@@ -45,6 +45,7 @@ class MainProvider extends ChangeNotifier {
   static const int _pageSize = 50;
   static const int _maxPagesInMemory = 4;
   final Map<int, List<MediaItem>> _pageCache = {};
+  Map<int, List<MediaItem>> _stalePageCache = {};
   final List<int> _pageUsageHistory = []; //usage history: first element -> oldest, last element -> newest
   final Set<int> _pagesBeingFetched = {}; // prevent duplicate fetches
 
@@ -217,6 +218,14 @@ class MainProvider extends ChangeNotifier {
     // cache miss: trigger fetch
     _fetchPage(pageIndex);
 
+    // while waiting for the fetch, show the old data
+    if (_stalePageCache.containsKey(pageIndex)) {
+      final page = _stalePageCache[pageIndex]!;
+      if (indexInPage < page.length) {
+        return page[indexInPage];
+      }
+    }
+
     // return null so UI shows "loading..."
     return null;
   }
@@ -261,6 +270,8 @@ class MainProvider extends ChangeNotifier {
   // cache clearing
   // called whenever data changes
   void _invalidateCache() {
+    _stalePageCache = Map.from(_pageCache);
+
     _pageCache.clear();
     _pageUsageHistory.clear();
     _pagesBeingFetched.clear();
