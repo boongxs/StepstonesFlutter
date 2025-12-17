@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/folder_picker_service.dart';
 import '../services/settings_service.dart';
 import '../services/logger_service.dart';
@@ -13,6 +14,7 @@ import 'dart:io';
 import 'dart:async';
 import '../utils/media_helper.dart';
 import '../utils/metadata_helper.dart';
+import '../utils/thumbnail_helper.dart';
 
 class MainProvider extends ChangeNotifier {
   final FolderPickerService _folderPickerService;
@@ -46,6 +48,9 @@ class MainProvider extends ChangeNotifier {
   final List<int> _pageUsageHistory = []; //usage history: first element -> oldest, last element -> newest
   final Set<int> _pagesBeingFetched = {}; // prevent duplicate fetches
 
+  String? _appSupportPath;
+  String? get appSupportPath => _appSupportPath;
+
   MainProvider(
     this._folderPickerService, 
     this._settingsService,
@@ -55,6 +60,9 @@ class MainProvider extends ChangeNotifier {
 
   // load saved settings when app starts
   Future<void> initialize() async {
+    final dir = await getApplicationSupportDirectory();
+    _appSupportPath = dir.path;
+    
     _mediaFolderPath = await _settingsService.loadMediaFolderPath();
     if (_mediaFolderPath != null) {
       await refreshFileCount();
@@ -298,6 +306,12 @@ class MainProvider extends ChangeNotifier {
           try {
             final type = await MediaHelper.inferFileType(sourcePath); // get file type
             final metadata = await MetadataHelper.extractMetadata(sourcePath, type); // get width, height, duration
+            final thumbFileName = await ThumbnailHelper.generateThumbnail(
+              sourcePath: sourcePath,
+              fileType: type,
+              fileHash: response.hash!,
+              durationMs: metadata.durationMs,
+            );
 
             // create the database record to be inserted
             final entry = MediaItemsCompanion(
@@ -309,6 +323,7 @@ class MainProvider extends ChangeNotifier {
               width: drift.Value(metadata.width),
               height: drift.Value(metadata.height),
               duration: drift.Value(metadata.durationMs),
+              thumbnailPath: drift.Value(thumbFileName),
             );
 
             // insert into SQLite

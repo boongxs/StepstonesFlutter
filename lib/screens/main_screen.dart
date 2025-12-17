@@ -32,7 +32,7 @@ class MainScreen extends StatelessWidget {
                     // Title
                     const Text(
                       "Stepstones",
-                      style: TextStyle(fontSize: 90, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 90),
                     ),
 
                     // Gap
