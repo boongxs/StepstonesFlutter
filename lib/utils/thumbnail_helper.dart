@@ -26,7 +26,11 @@ class ThumbnailHelper {
         await thumbDir.create(recursive: true);
       }
 
-      final thumbFileName = '$fileHash.jpg';
+      // determine output format
+      final ext = p.extension(sourcePath).toLowerCase();
+      final isTransparent = ['.png', '.gif', '.webp'].contains(ext);
+      final targetExt = isTransparent ? '.png' : '.jpg'; // use .png extension if we need transparency, otherwise .jpg
+      final thumbFileName = '$fileHash$targetExt';
       final thumbFile = File(p.join(thumbDir.path, thumbFileName));
 
       // skip if thumbnail for file already exists
@@ -36,7 +40,7 @@ class ThumbnailHelper {
 
       // generate thumbnail
       if (fileType == 'image' || fileType == 'gif') {
-        final success = await _processImage(File(sourcePath), thumbFile);
+        final success = await _processImage(File(sourcePath), thumbFile, isTransparent);
         return success ? thumbFileName : null;
       }
       else if (fileType == 'video') {
@@ -52,18 +56,35 @@ class ThumbnailHelper {
   }
 
   // image logic (resize + crop)
-  static Future<bool> _processImage(File source, File target) async {
+  static Future<bool> _processImage(File source, File target, bool isTransparent) async {
     try {
       final bytes = await source.readAsBytes();
 
-      // load image
-      final cmd = img.Command()
-        ..decodeImage(bytes)
-        ..copyResizeCropSquare(size: 250)
-        ..encodeJpg(quality: 75)
-        ..writeToFile(target.path);
+      // decode image
+      final img.Image? decoded = img.decodeImage(bytes);
+      if (decoded == null) return false;
 
-      await cmd.executeThread(); // run in isolate
+      // handle animation -> pick the first frame
+      img.Image singleFrame = decoded;
+      if (decoded.numFrames > 1) {
+        singleFrame = decoded.frames[0];
+      }
+
+      // resize and crop (center 250x250 cookie cutter style)
+      final resized = img.copyResizeCropSquare(singleFrame, size: 250);
+
+      // encode
+      List<int> encodedBytes;
+      if (isTransparent) {
+        // encode as png to support transparency
+        encodedBytes = img.encodePng(resized, singleFrame: true);
+      } else {
+        // encode as jpg if transparency not needed
+        encodedBytes = img.encodeJpg(resized, quality: 75);
+      }
+
+      // write to disk
+      await target.writeAsBytes(encodedBytes);
       return true;
     } catch (e) {
       LogService.e("Image processing failed: $e");
@@ -105,7 +126,7 @@ class ThumbnailHelper {
       }
 
       // process the temp frame (crop to 250x250)
-      final success = await _processImage(tempFrame, target);
+      final success = await _processImage(tempFrame, target, false);
 
       // cleanup temp
       if (await tempFrame.exists()) await tempFrame.delete();
