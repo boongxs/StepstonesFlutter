@@ -5,6 +5,9 @@ import 'package:path/path.dart' as p;
 import '../providers/main_provider.dart';
 import '../data/app_database.dart';
 import '../utils/min_extra_delegate.dart';
+import 'quadrant_button.dart';
+import '../services/clipboard_service.dart';
+import '../services/media_action_service.dart';
 
 class MediaGrid extends StatelessWidget {
   const MediaGrid({super.key});
@@ -170,15 +173,15 @@ class _MediaCellState extends State<_MediaCell> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _QuadrantButton( // copy
+                          QuadrantButton( // copy
                             icon: Icons.content_copy_rounded,
                             hoverColor: Color(0xFFFFC600),
-                            onTap: () => print("Copy"),
+                            onTap: () => MediaActionService.onCopy(context, widget.item!),
                           ),
-                          _QuadrantButton( // edit
+                          QuadrantButton( // edit
                             icon: Icons.edit_rounded,
                             hoverColor: Color(0xFF25BB00),
-                            onTap: () => print("Edit"),
+                            onTap: () => MediaActionService.onEdit(context, widget.item!),
                           ),
                         ],
                       ),
@@ -187,15 +190,15 @@ class _MediaCellState extends State<_MediaCell> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _QuadrantButton(
+                          QuadrantButton(
                             icon: Icons.fullscreen_rounded,
                             hoverColor: Color(0xFF4FAFFF),
-                            onTap: () => print("Enlarge"),
+                            onTap: () => MediaActionService.onEnlarge(context, widget.item!),
                           ),
-                          _QuadrantButton(
+                          QuadrantButton(
                             icon: Icons.delete_outline_rounded,
                             hoverColor: Color(0xFFFF5454),
-                            onTap: () => print("Delete"),
+                            onTap: () => MediaActionService.onDelete(context, widget.item!),
                           ),
                         ],
                       ),
@@ -219,49 +222,5 @@ class _MediaCellState extends State<_MediaCell> {
     } else {
       return "${twoDigits(duration.inMinutes.remainder(60))}:${twoDigits(duration.inSeconds.remainder(60))}";
     }
-  }
-}
-
-class _QuadrantButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color hoverColor;
-
-  const _QuadrantButton({
-    required this.icon,
-    required this.onTap,
-    required this.hoverColor,
-  });
-
-  @override
-  State<_QuadrantButton> createState() => _QuadrantButtonState();
-}
-
-class _QuadrantButtonState extends State<_QuadrantButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      // MouseRegion tracks hover for this specific quadrant
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-
-        // GestureDetector handles clicks
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Center(
-            child: Icon(
-              widget.icon,
-              size: 48,
-              color: _isHovered ? widget.hoverColor : Colors.white,
-            )
-          )
-        )
-      )
-    );
   }
 }

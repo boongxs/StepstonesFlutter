@@ -21,6 +21,7 @@ dependencies:
   provider: ^6.1.5+1
   shared_preferences: ^2.5.3
   sqlite3_flutter_libs: ^0.5.41
+  super_clipboard: ^0.9.1
   xxh3: ^1.2.0
 
 dev_dependencies:
