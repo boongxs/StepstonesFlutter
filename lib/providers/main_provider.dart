@@ -404,6 +404,26 @@ class MainProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateTags(MediaItem item, String rawTags) async {
+    try {
+      // sanitize input
+      var cleaned = rawTags.trim(); // trim whitespace from start and end
+      cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' '); // replace multiple spaces between tags with just one space
+
+      // update database
+      await _database.updateMediaTags(item.id, cleaned);
+
+      // update local state
+      _invalidateCache();
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      LogService.e("Failed to update tags: $e");
+      return false;
+    }
+  }
+
   // helper to avoid infinite recursion calling refreshFileCount()
   Future<void> _refreshFileCountInner(AppDatabase db) async {
     if (_mediaFolderPath != null) {

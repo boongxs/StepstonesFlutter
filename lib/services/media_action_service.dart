@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:stepstones_flt/widgets/edit_tags_dialog.dart';
 import '../data/app_database.dart';
 import 'clipboard_service.dart';
 import '../providers/main_provider.dart';
@@ -26,7 +27,30 @@ class MediaActionService {
 
   // edit command
   static Future<void> onEdit(BuildContext context, MediaItem item) async {
-    print("TODO: Open Edit Dialog for ${item.originalFileName}");
+    // open dialog
+    final newTags = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => EditTagsDialog(
+        initialTags: item.tags ?? "", // pass existing tags or empty
+      ),
+    );
+
+    // if user cancelled, stop
+    if (newTags == null) return;
+
+    // save changes
+    final provider = context.read<MainProvider>();
+    final success = await provider.updateTags(item, newTags);
+
+    // ui feedback
+    if (context.mounted) {
+      _showSnackBar(
+        context,
+        success ? "Tags updated successfully" : "Failed to update tags",
+        isError: !success,
+      );
+    }
   }
 
   // enlarge command

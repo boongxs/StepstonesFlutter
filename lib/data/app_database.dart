@@ -94,6 +94,15 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deleteMediaItem(int id) {
     return (delete(mediaItems)..where((t) => t.id.equals(id))).go();
   }
+
+  // update the 'tags' column for a specific media item ID
+  Future<int> updateMediaTags(int id, String newTags) {
+    return (update(mediaItems)
+      ..where((t) => t.id.equals(id))
+    ).write(MediaItemsCompanion(
+      tags: Value(newTags),
+    ));
+  }
 }
 
 // connection helper
