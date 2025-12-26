@@ -5,6 +5,7 @@ import '../data/app_database.dart';
 import 'clipboard_service.dart';
 import '../providers/main_provider.dart';
 import 'package:provider/provider.dart';
+import '../widgets/media_viewer_dialog.dart';
 
 class MediaActionService {
   MediaActionService._();
@@ -55,7 +56,17 @@ class MediaActionService {
 
   // enlarge command
   static Future<void> onEnlarge(BuildContext context, MediaItem item) async {
-    print("TODO: Open Viewer for ${item.originalFileName}");
+    if (item.fileType != 'image') {
+      _showSnackBar(context, "Viewer for ${item.fileType} not implemented yet", isError: true);
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.8),
+      builder: (ctx) => MediaViewerDialog(item: item),
+    );
   }
 
   // edit command
