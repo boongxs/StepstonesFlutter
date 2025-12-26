@@ -52,11 +52,14 @@ class MainProvider extends ChangeNotifier {
   String? _appSupportPath;
   String? get appSupportPath => _appSupportPath;
 
+  final AppDatabase _database;
+
   MainProvider(
     this._folderPickerService, 
     this._settingsService,
     this._filePickerService,
     this._fileService,
+    this._database,
   );
 
   // load saved settings when app starts
@@ -367,6 +370,38 @@ class MainProvider extends ChangeNotifier {
     _isUploading = false;
     LogService.i('Queue empty. Upload batch complete.');
     notifyListeners();
+  }
+
+  Future<bool> deleteItem(MediaItem item) async {
+    try {
+      // delete source file
+      if (_mediaFolderPath != null) {
+        final sourceFile = File(p.join(_mediaFolderPath!, item.hashedFileName));
+        if (await sourceFile.exists()) {
+          await sourceFile.delete();
+        }
+      }
+
+      // delete thumbnail file
+      if (item.thumbnailPath != null && _appSupportPath != null) {
+        final thumbFile = File(p.join(_appSupportPath!, 'thumbnails', item.thumbnailPath));
+        if (await thumbFile.exists()) {
+          await thumbFile.delete();
+        }
+      }
+
+      // delete from database
+      await _database.deleteMediaItem(item.id);
+
+      // update UI and shrink scrollbar appropriately
+      _invalidateCache();
+      await _refreshFileCountInner(_database);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      LogService.e("Failed to delete item: $e");
+      return false;
+    }
   }
 
   // helper to avoid infinite recursion calling refreshFileCount()

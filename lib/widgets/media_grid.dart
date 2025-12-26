@@ -112,7 +112,7 @@ class _MediaCellState extends State<_MediaCell> {
             if (hasThumb && fullThumbPath != null)
               Image.file(
                 File(fullThumbPath),
-                key: ValueKey(File(fullThumbPath).lastModifiedSync().millisecondsSinceEpoch),
+                key: ValueKey(_safelyGetMTime(File(fullThumbPath))),
                 fit: BoxFit.cover,
                 errorBuilder: (ctx, err, stack) => const Center(
                   child: Icon(Icons.broken_image, color: Colors.grey)
@@ -221,6 +221,15 @@ class _MediaCellState extends State<_MediaCell> {
       return "${twoDigits(duration.inHours)}:${twoDigits(duration.inMinutes.remainder(60))}:${twoDigits(duration.inSeconds.remainder(60))}";
     } else {
       return "${twoDigits(duration.inMinutes.remainder(60))}:${twoDigits(duration.inSeconds.remainder(60))}";
+    }
+  }
+
+  int _safelyGetMTime(File file) {
+    try {
+      if (!file.existsSync()) return 0;
+      return file.lastModifiedSync().millisecondsSinceEpoch;
+    } catch (e) {
+      return 0;
     }
   }
 }

@@ -90,6 +90,10 @@ class AppDatabase extends _$AppDatabase {
       ..limit(limit, offset: offset)
     ).get();
   }
+
+  Future<int> deleteMediaItem(int id) {
+    return (delete(mediaItems)..where((t) => t.id.equals(id))).go();
+  }
 }
 
 // connection helper

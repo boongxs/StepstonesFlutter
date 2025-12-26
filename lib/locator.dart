@@ -24,5 +24,6 @@ void setupLocator() {
     getIt<SettingsService>(),
     getIt<FilePickerService>(),
     getIt<FileService>(),
+    getIt<AppDatabase>(),
   ));
 }

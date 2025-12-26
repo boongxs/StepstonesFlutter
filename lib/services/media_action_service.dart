@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import '../data/app_database.dart';
 import 'clipboard_service.dart';
+import '../providers/main_provider.dart';
+import 'package:provider/provider.dart';
 
 class MediaActionService {
   MediaActionService._();
@@ -34,7 +36,44 @@ class MediaActionService {
 
   // edit command
   static Future<void> onDelete(BuildContext context, MediaItem item) async {
-    print("TODO: Show Delete Confirmation for ${item.originalFileName}");
+    // show confirmation dialog
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Media Item"),
+        content: Text("Are you sure you want to delete this media item?\n"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    // if user clicked cancel or outside the box
+    if (shouldDelete != true) return;
+
+    // perform deletion
+    final provider = context.read<MainProvider>();
+    final success = await provider.deleteItem(item);
+
+    // show feedback
+    if (context.mounted) {
+      _showSnackBar(
+        context,
+        success ? "Successfully deleted media item" : "Failed to delete media item",
+        isError: !success,
+      );
+    }
   }
 
   // helper to show notifications
