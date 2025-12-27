@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'locator.dart';
 import 'services/logger_service.dart';
 import 'screens/main_screen.dart';
+import 'package:media_kit/media_kit.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
+
   setupLocator();
   LogService.i('Application starting up...');
   runApp(const MainApp());

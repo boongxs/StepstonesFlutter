@@ -56,8 +56,10 @@ class MediaActionService {
 
   // enlarge command
   static Future<void> onEnlarge(BuildContext context, MediaItem item) async {
-    if (item.fileType != 'image') {
-      _showSnackBar(context, "Viewer for ${item.fileType} not implemented yet", isError: true);
+    const allowedTypes = ['image', 'gif', 'video', 'audio'];
+
+    if (!allowedTypes.contains(item.fileType)) {
+      _showSnackBar(context, "Viewer for ${item.fileType} not implemented.", isError: true);
       return;
     }
 

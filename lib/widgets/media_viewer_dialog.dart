@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import '../../data/app_database.dart';
+import 'universal_player.dart';
 
 class MediaViewerDialog extends StatelessWidget {
   final MediaItem item;
@@ -33,6 +34,23 @@ class MediaViewerDialog extends StatelessWidget {
 
     final fullPath = p.join(item.mediaFolderPath, item.hashedFileName);
 
+    Widget contentWidget;
+
+    if (item.fileType == 'image' || item.fileType == 'gif') {
+      contentWidget = Image.file(
+        File(fullPath),
+        fit: BoxFit.contain,
+        errorBuilder: (ctx, err, stack) => const Center(
+          child: Icon(Icons.broken_image, color: Colors.white, size: 48),
+        ),
+      );
+    } else {
+      contentWidget = UniversalPlayer(
+        filePath: fullPath,
+        isAudio: item.fileType == 'audio',
+      );
+    }
+
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0, // no shadow from the dialog container itself
@@ -48,7 +66,7 @@ class MediaViewerDialog extends StatelessWidget {
             ),
           ),
 
-          // image content
+          // content
           Center(
             child: GestureDetector(
               onTap: () {}, // swallow clicks on the image so that it doesn't close the dialog
@@ -64,13 +82,7 @@ class MediaViewerDialog extends StatelessWidget {
                     ],
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Image.file(
-                    File(fullPath),
-                    fit: BoxFit.contain,
-                    errorBuilder: (ctx, err, stack) => const Center(
-                      child: Icon(Icons.broken_image, color: Colors.white, size: 48),
-                    ),
-                  ),
+                  child: contentWidget,
                 ),
               ),
             ),
