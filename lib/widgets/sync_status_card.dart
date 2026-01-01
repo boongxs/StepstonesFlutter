@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 class SyncStatusCard extends StatelessWidget {
   final String text;
+  final String? subtext;
   final bool isVisible;
   final bool isLoading;
 
   const SyncStatusCard({
     super.key,
     required this.text,
+    this.subtext,
     required this.isVisible,
     required this.isLoading
   });
@@ -35,19 +37,37 @@ class SyncStatusCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2)
                   ),
                   const SizedBox(width: 12),
-                ] else ...[
-                  Icon(Icons.check_circle, size: 16, color: Colors.green),
-                  const SizedBox(width: 12),
                 ],
-                Text(
-                  text,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                )
-              ]
-            )
-          )
-        )
-      )
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        text,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      if (subtext != null && subtext!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            subtext!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

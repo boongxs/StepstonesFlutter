@@ -106,7 +106,7 @@ class AppDatabase extends _$AppDatabase {
     });
 
     query.limit(limit, offset: offset);
-    query.orderBy([(t) => OrderingTerm(expression: t.originalFileName)]);
+    query.orderBy([(t) => OrderingTerm(expression: t.id)]);
 
     return query.get();
   }

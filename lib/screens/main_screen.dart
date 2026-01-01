@@ -124,6 +124,7 @@ class MainScreen extends StatelessWidget {
                 builder: (context, vm, _) {
                   return SyncStatusCard(
                     text: vm.syncStatusText,
+                    subtext: vm.currentSyncingFilename,
                     isVisible: vm.showSyncCard,
                     isLoading: vm.isSyncingWorkInProgress
                   );

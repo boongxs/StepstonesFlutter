@@ -58,6 +58,9 @@ class MainProvider extends ChangeNotifier {
   String? _currentSearchQuery = "";
   Timer? _searchDebounceTimer;
 
+  String _currentSyncingFilename = "";
+  String get currentSyncingFilename => _currentSyncingFilename;
+
   MainProvider(
     this._folderPickerService, 
     this._settingsService,
@@ -301,9 +304,13 @@ class MainProvider extends ChangeNotifier {
       final fileName = p.basename(sourcePath);
       final isImport = p.isWithin(_mediaFolderPath!, sourcePath);
 
-      if (!silent) {
+      if (silent) {
+        _currentSyncingFilename = fileName;
+        notifyListeners();
+      } else {
         statusProvider.updateCurrentFile(fileName, 0);
       }
+
       CopyResponse response;
 
       if (isImport) { // no need for copying (manually added files)
@@ -377,6 +384,10 @@ class MainProvider extends ChangeNotifier {
           if (!silent) statusProvider.markFailed();
           break;
       }
+    }
+
+    if (silent) {
+      _currentSyncingFilename = "";
     }
 
     _invalidateCache();
