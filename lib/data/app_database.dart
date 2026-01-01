@@ -56,14 +56,20 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // count items in a specific folder
-  Future<int> getCountForFolder(String folderPath) async {
-    final countExp = mediaItems.id.count();
-    final query = selectOnly(mediaItems)
-      ..addColumns([countExp])
-      ..where(mediaItems.mediaFolderPath.equals(folderPath));
+  Future<int> getCountForFolder(String folderPath, {String? searchQuery}) async {
+    var query = selectOnly(mediaItems)
+      ..addColumns([mediaItems.id.count()]);
 
-    final result = await query.map((row) => row.read(countExp)).getSingle();
-    return result ?? 0;
+    Expression<bool> predicate = mediaItems.mediaFolderPath.equals(folderPath);
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      predicate = predicate &
+                  mediaItems.tags.isNotNull() &
+                  mediaItems.tags.contains(searchQuery);
+    }
+
+    query.where(predicate);
+    return query.map((row) => row.read(mediaItems.id.count())!).getSingle();
   }
 
   // get list of all 'hashedFileName' in a folder
@@ -84,11 +90,25 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // fetch a specific page of items (data virtualization)
-  Future<List<MediaItem>> getPagedMediaItems(int limit, int offset) {
-    return (select(mediaItems)
-      ..orderBy([(t) => OrderingTerm(expression: t.id, mode: OrderingMode.asc)])
-      ..limit(limit, offset: offset)
-    ).get();
+  Future<List<MediaItem>> getPagedMediaItems(String folderPath, int limit, int offset, {String? searchQuery}) {
+    var query = select(mediaItems);
+
+    query.where((t) {
+      Expression<bool> predicate = t.mediaFolderPath.equals(folderPath);
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        predicate = predicate &
+                    t.tags.isNotNull() &
+                    t.tags.contains(searchQuery);
+      }
+
+      return predicate;
+    });
+
+    query.limit(limit, offset: offset);
+    query.orderBy([(t) => OrderingTerm(expression: t.originalFileName)]);
+
+    return query.get();
   }
 
   Future<int> deleteMediaItem(int id) {

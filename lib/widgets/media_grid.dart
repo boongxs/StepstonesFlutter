@@ -32,6 +32,7 @@ class MediaGrid extends StatelessWidget {
           : null;
 
         return GridView.builder(
+          controller: vm.scrollController,
           padding: const EdgeInsets.all(10),
           itemCount: vm.totalItemCount, // virtualization: exact count ensures scrollbar is correct
 

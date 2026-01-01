@@ -15,7 +15,10 @@ class MainScreen extends StatelessWidget {
     // 1. Wrap the screen in the MainProvider so the UI can listen to state changes
     return ChangeNotifierProvider(
       create: (_) => getIt<MainProvider>()..initialize(),
-      child: Scaffold(
+      child: Builder(
+        builder: (context) {
+
+      return Scaffold(
         // 2. Use a Stack to allow the UploadStatusCard to float above the main content
         body: Stack(
           children: [
@@ -48,7 +51,7 @@ class MainScreen extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       padding: const EdgeInsets.fromLTRB(10, 0, 10, 7),
-                      child: const TextField(
+                      child: TextField(
                         style: TextStyle(fontSize: 32, height: 1.0),
                         textAlignVertical: TextAlignVertical.center,
                         decoration: InputDecoration(
@@ -58,6 +61,9 @@ class MainScreen extends StatelessWidget {
                           hintText: "Search...",
                           hintStyle: TextStyle(color: Colors.grey),
                         ),
+                        onChanged: (value) {
+                          context.read<MainProvider>().onSearchTextChanged(value);
+                        },
                       ),
                     ),
 
@@ -134,6 +140,8 @@ class MainScreen extends StatelessWidget {
             ),
           ],
         ),
+      );
+      }
       ),
     );
   }

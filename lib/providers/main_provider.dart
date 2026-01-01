@@ -15,6 +15,7 @@ import 'dart:async';
 import '../utils/media_helper.dart';
 import '../utils/metadata_helper.dart';
 import '../utils/thumbnail_helper.dart';
+import 'package:flutter/material.dart';
 
 class MainProvider extends ChangeNotifier {
   final FolderPickerService _folderPickerService;
@@ -53,6 +54,10 @@ class MainProvider extends ChangeNotifier {
   String? get appSupportPath => _appSupportPath;
 
   final AppDatabase _database;
+
+  final ScrollController scrollController = ScrollController();
+  String? _currentSearchQuery = "";
+  Timer? _searchDebounceTimer;
 
   MainProvider(
     this._folderPickerService, 
@@ -123,8 +128,7 @@ class MainProvider extends ChangeNotifier {
     try {
       // update count UI immediately
       final database = getIt<AppDatabase>();
-      _totalItemCount = await database.getCountForFolder(_mediaFolderPath!);
-      notifyListeners();
+      await _refreshFileCountInner(database);
 
       // perform sync check
       // get DB files
@@ -241,12 +245,18 @@ class MainProvider extends ChangeNotifier {
   // internal fetcher
   void _fetchPage(int pageIndex) {
     if (_pagesBeingFetched.contains(pageIndex)) return;
+    if (_mediaFolderPath == null) return;
 
     _pagesBeingFetched.add(pageIndex);
     final db = getIt<AppDatabase>();
     final offset = pageIndex * _pageSize;
 
-    db.getPagedMediaItems(_pageSize, offset).then((items) {
+    db.getPagedMediaItems(
+      _mediaFolderPath!,
+      _pageSize, 
+      offset,
+      searchQuery: _currentSearchQuery
+    ).then((items) {
       if (items.isEmpty && _totalItemCount > 0) {
         // edge case: DB count might be out of sync, but ignore for now
         _pagesBeingFetched.remove(pageIndex);
@@ -426,9 +436,34 @@ class MainProvider extends ChangeNotifier {
 
   // helper to avoid infinite recursion calling refreshFileCount()
   Future<void> _refreshFileCountInner(AppDatabase db) async {
-    if (_mediaFolderPath != null) {
-      _totalItemCount = await db.getCountForFolder(_mediaFolderPath!);
-      notifyListeners();
-    }
+    if (_mediaFolderPath == null) return;
+
+    _totalItemCount = await db.getCountForFolder(
+      _mediaFolderPath!,
+      searchQuery: _currentSearchQuery
+    );
+
+    notifyListeners();
+  }
+
+  void onSearchTextChanged(String text) {
+    _searchDebounceTimer?.cancel();
+
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      _currentSearchQuery = text;
+      _invalidateCache();
+      if (scrollController.hasClients) {
+        scrollController.jumpTo(0);
+      }
+
+      final db = getIt<AppDatabase>();
+      await _refreshFileCountInner(db);
+    });
+  }
+
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
   }
 }
