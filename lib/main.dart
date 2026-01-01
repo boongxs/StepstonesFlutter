@@ -4,9 +4,11 @@ import 'services/logger_service.dart';
 import 'screens/main_screen.dart';
 import 'package:media_kit/media_kit.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+
+  await LogService.init();
 
   setupLocator();
   LogService.i('Application starting up...');
