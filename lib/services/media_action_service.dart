@@ -66,7 +66,7 @@ class MediaActionService {
     await showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.8),
+      barrierColor: Colors.black.withValues(alpha: 0.8),
       builder: (ctx) => MediaViewerDialog(item: item),
     );
   }

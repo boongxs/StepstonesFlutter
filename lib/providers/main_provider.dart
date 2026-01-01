@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/folder_picker_service.dart';
 import '../services/settings_service.dart';

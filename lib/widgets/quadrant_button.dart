@@ -5,7 +5,7 @@ class QuadrantButton extends StatefulWidget {
   final VoidCallback onTap;
   final Color hoverColor;
 
-  const QuadrantButton({
+  const QuadrantButton({super.key, 
     required this.icon,
     required this.onTap,
     required this.hoverColor,

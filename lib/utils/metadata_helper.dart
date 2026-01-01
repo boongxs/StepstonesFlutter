@@ -46,7 +46,7 @@ class MetadataHelper {
       if (!await file.exists()) return const MediaMetadata();
 
       // read only the header bytes for info
-      final size = isg.ImageSizeGetter.getSize(FileInput(file));
+      final size = isg.ImageSizeGetter.getSizeResult(FileInput(file)).size;
 
       return MediaMetadata(
         width: size.width,

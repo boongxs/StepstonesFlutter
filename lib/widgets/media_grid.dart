@@ -6,7 +6,6 @@ import '../providers/main_provider.dart';
 import '../data/app_database.dart';
 import '../utils/min_extra_delegate.dart';
 import 'quadrant_button.dart';
-import '../services/clipboard_service.dart';
 import '../services/media_action_service.dart';
 
 class MediaGrid extends StatelessWidget {
@@ -48,6 +47,7 @@ class MediaGrid extends StatelessWidget {
             // ask provider for data, if null trigger fetch
             final MediaItem? item = vm.getItem(index);
             return _MediaCell(
+              key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
               item: item, 
               index: index,
               thumbBaseDir: thumbBaseDir
@@ -84,7 +84,7 @@ class _MediaCellState extends State<_MediaCell> {
     if (widget.item == null) {
       return Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(8),
         ),
       );
@@ -144,7 +144,7 @@ class _MediaCellState extends State<_MediaCell> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -162,7 +162,7 @@ class _MediaCellState extends State<_MediaCell> {
               // layer 3 dark overlay (on hover)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                 ),
               ),
 
