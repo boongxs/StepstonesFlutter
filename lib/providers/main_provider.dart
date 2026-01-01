@@ -354,8 +354,18 @@ class MainProvider extends ChangeNotifier {
             LogService.i("DB record inserted for ${response.finalFileName}");
             if (!silent) statusProvider.completeFile();
           } catch (e) {
-            LogService.e("Failed to insert DB record", e);
-            if (!silent) statusProvider.markFailed();
+            // check if this is a unique constraint error
+            final isDuplicate = e.toString().contains("2067") ||
+                                e.toString().contains("UNIQUE constraint failed");
+
+            if (isDuplicate) {
+              LogService.w("Database constraint: Item already exists. Marking as duplicate.");
+              if (!silent) statusProvider.markDuplicate();
+            } else {
+              // if it's a real error
+              LogService.e("Failed to insert DB record", e);
+              if (!silent) statusProvider.markFailed();
+            }
           }
           break;
 
