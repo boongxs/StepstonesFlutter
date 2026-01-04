@@ -62,7 +62,7 @@ class MainScreen extends StatelessWidget {
                           hintStyle: TextStyle(color: Colors.grey),
                         ),
                         onChanged: (value) {
-                          context.read<MainProvider>().onSearchTextChanged(value);
+                          context.read<MainProvider>().gallery.onSearchTextChanged(value);
                         },
                       ),
                     ),
@@ -81,7 +81,7 @@ class MainScreen extends StatelessWidget {
                             ActionButton(
                               icon: Icons.folder,
                               tooltip: "Select Media Folder",
-                              onPressed: vm.selectFolder,
+                              onPressed: vm.session.selectFolder,
                             ),
                             const SizedBox(width: 10),
 
@@ -89,7 +89,7 @@ class MainScreen extends StatelessWidget {
                             ActionButton(
                               icon: Icons.upload_file,
                               tooltip: "Upload Files",
-                              onPressed: vm.uploadFiles,
+                              onPressed: vm.sync.uploadFiles,
                             ),
                             const SizedBox(width: 10),
 
@@ -97,7 +97,7 @@ class MainScreen extends StatelessWidget {
                             ActionButton(
                               icon: Icons.refresh,
                               tooltip: "Refresh File Count",
-                              onPressed: vm.refreshFileCount,
+                              onPressed: vm.sync.performFullSync,
                             ),
                           ],
                         );
@@ -123,10 +123,10 @@ class MainScreen extends StatelessWidget {
               child: Consumer<MainProvider>(
                 builder: (context, vm, _) {
                   return SyncStatusCard(
-                    text: vm.syncStatusText,
-                    subtext: vm.currentSyncingFilename,
-                    isVisible: vm.showSyncCard,
-                    isLoading: vm.isSyncingWorkInProgress
+                    text: vm.sync.syncStatusText,
+                    subtext: vm.sync.currentSyncingFilename,
+                    isVisible: vm.sync.showSyncCard,
+                    isLoading: vm.sync.isSyncingWorkInProgress
                   );
                 },
               ),

@@ -19,11 +19,5 @@ void setupLocator() {
   getIt.registerLazySingleton<FileService>(() => FileService());
   getIt.registerLazySingleton<UploadStatusProvider>(() => UploadStatusProvider());
 
-  getIt.registerFactory<MainProvider>(() => MainProvider(
-    getIt<FolderPickerService>(),
-    getIt<SettingsService>(),
-    getIt<FilePickerService>(),
-    getIt<FileService>(),
-    getIt<AppDatabase>(),
-  ));
+  getIt.registerFactory<MainProvider>(() => MainProvider());
 }

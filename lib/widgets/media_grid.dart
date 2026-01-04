@@ -16,24 +16,24 @@ class MediaGrid extends StatelessWidget {
     return Consumer<MainProvider>(
       builder: (context, vm, _) {
         // empty state
-        if (vm.mediaFolderPath == null) {
+        if (vm.session.mediaFolderPath == null) {
           return const Center(child: Text("Select a folder to begin"));
         }
 
         // show "no items" only if we are not currently syncing to avoid flicker on startup
-        if (vm.totalItemCount == 0 && !vm.isSyncingWorkInProgress) {
+        if (vm.gallery.totalItemCount == 0 && !vm.sync.isSyncingWorkInProgress) {
           return const Center(child: Text("No media items found"));
         }
 
         // pass the cached base path to cells
-        final thumbBaseDir = vm.appSupportPath != null
-          ? p.join(vm.appSupportPath!, 'thumbnails')
+        final thumbBaseDir = vm.session.appSupportPath != null
+          ? p.join(vm.session.appSupportPath!, 'thumbnails')
           : null;
 
         return GridView.builder(
-          controller: vm.scrollController,
+          controller: vm.gallery.scrollController,
           padding: const EdgeInsets.all(10),
-          itemCount: vm.totalItemCount, // virtualization: exact count ensures scrollbar is correct
+          itemCount: vm.gallery.totalItemCount, // virtualization: exact count ensures scrollbar is correct
 
           // responsive layout
           gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
@@ -45,7 +45,7 @@ class MediaGrid extends StatelessWidget {
 
           itemBuilder: (context, index) {
             // ask provider for data, if null trigger fetch
-            final MediaItem? item = vm.getItem(index);
+            final MediaItem? item = vm.gallery.getItem(index);
             return _MediaCell(
               key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
               item: item, 

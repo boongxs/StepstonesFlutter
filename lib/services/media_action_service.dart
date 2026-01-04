@@ -42,7 +42,7 @@ class MediaActionService {
 
     // save changes
     final provider = context.read<MainProvider>();
-    final success = await provider.updateTags(item, newTags);
+    final success = await provider.gallery.updateTags(item, newTags);
 
     // ui feedback
     if (context.mounted) {
@@ -101,7 +101,7 @@ class MediaActionService {
 
     // perform deletion
     final provider = context.read<MainProvider>();
-    final success = await provider.deleteItem(item);
+    final success = await provider.gallery.deleteItem(item);
 
     // show feedback
     if (context.mounted) {
