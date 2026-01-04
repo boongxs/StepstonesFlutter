@@ -1,9 +1,60 @@
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import '../services/logger_service.dart';
+
+class _ThumbnailRequest {
+  final String sourcePath;
+  final String destinationPath;
+  final bool isTransparent;
+  final int size;
+
+  _ThumbnailRequest({
+    required this.sourcePath,
+    required this.destinationPath,
+    required this.isTransparent,
+    required this.size,
+  });
+}
+
+Future<bool> _generateImageInIsolate(_ThumbnailRequest request) async {
+  try {
+    final sourceFile = File(request.sourcePath);
+    final bytes = await sourceFile.readAsBytes();
+
+    // decode image
+    final img.Image? decoded = img.decodeImage(bytes);
+    if (decoded == null) return false;
+
+    // handle GIF files
+    img.Image singleFrame = decoded;
+    if (decoded.numFrames > 1) {
+      singleFrame = decoded.frames[0];
+    }
+
+    // resize and crop
+    final resized = img.copyResizeCropSquare(singleFrame, size: request.size);
+
+    // encode
+    List<int> encodedBytes;
+    if (request.isTransparent) {
+      encodedBytes = img.encodePng(resized, singleFrame: true);
+    } else {
+      encodedBytes = img.encodeJpg(resized, quality: 75);
+    }
+
+    // write to disk
+    await File(request.destinationPath).writeAsBytes(encodedBytes);
+    return true;
+  } catch (e) {
+    debugPrint("Isolate Image processing failed: $e");
+    return false;
+  }
+}
 
 class ThumbnailHelper {
   ThumbnailHelper._();
@@ -40,7 +91,14 @@ class ThumbnailHelper {
 
       // generate thumbnail
       if (fileType == 'image' || fileType == 'gif') {
-        final success = await _processImage(File(sourcePath), thumbFile, isTransparent);
+        final request = _ThumbnailRequest(
+          sourcePath: sourcePath, 
+          destinationPath: thumbFile.path, 
+          isTransparent: isTransparent, 
+          size: 250,
+        );
+
+        final success = await compute(_generateImageInIsolate, request);
         return success ? thumbFileName : null;
       }
       else if (fileType == 'video') {
@@ -52,43 +110,6 @@ class ThumbnailHelper {
     } catch (e) {
       LogService.e("Error generating thumbnail: $e");
       return null;
-    }
-  }
-
-  // image logic (resize + crop)
-  static Future<bool> _processImage(File source, File target, bool isTransparent) async {
-    try {
-      final bytes = await source.readAsBytes();
-
-      // decode image
-      final img.Image? decoded = img.decodeImage(bytes);
-      if (decoded == null) return false;
-
-      // handle animation -> pick the first frame
-      img.Image singleFrame = decoded;
-      if (decoded.numFrames > 1) {
-        singleFrame = decoded.frames[0];
-      }
-
-      // resize and crop (center 250x250 cookie cutter style)
-      final resized = img.copyResizeCropSquare(singleFrame, size: 250);
-
-      // encode
-      List<int> encodedBytes;
-      if (isTransparent) {
-        // encode as png to support transparency
-        encodedBytes = img.encodePng(resized, singleFrame: true);
-      } else {
-        // encode as jpg if transparency not needed
-        encodedBytes = img.encodeJpg(resized, quality: 75);
-      }
-
-      // write to disk
-      await target.writeAsBytes(encodedBytes);
-      return true;
-    } catch (e) {
-      LogService.e("Image processing failed: $e");
-      return false;
     }
   }
 
@@ -125,8 +146,15 @@ class ThumbnailHelper {
         return false;
       }
 
+      final request = _ThumbnailRequest(
+        sourcePath: tempFrame.path, 
+        destinationPath: target.path, 
+        isTransparent: false, 
+        size: 250,
+      );
+
       // process the temp frame (crop to 250x250)
-      final success = await _processImage(tempFrame, target, false);
+      final success = await compute(_generateImageInIsolate, request);
 
       // cleanup temp
       if (await tempFrame.exists()) await tempFrame.delete();
