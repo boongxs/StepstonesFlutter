@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 
 class MediaHelper {
   MediaHelper._();
@@ -10,6 +11,13 @@ class MediaHelper {
     try {
       final file = File(path);
       if (!await file.exists()) return 'unknown';
+
+      final ext = p.extension(path).toLowerCase();
+      const videoExtensions = {'.mkv', '.avi', '.webm', '.flv', '.mov', '.wmv'};
+
+      if (videoExtensions.contains(ext)) {
+        return 'video';
+      }
 
       // reads the first 12 bytes
       final List<int> headerBytes = await file.openRead(0, 12).first;
