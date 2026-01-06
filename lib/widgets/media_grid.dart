@@ -7,6 +7,7 @@ import '../data/app_database.dart';
 import '../utils/min_extra_delegate.dart';
 import 'quadrant_button.dart';
 import '../services/media_action_service.dart';
+import 'selection_border_painter.dart';
 
 class MediaGrid extends StatelessWidget {
   const MediaGrid({super.key});
@@ -90,83 +91,153 @@ class _MediaCellState extends State<_MediaCell> {
       );
     }
 
+    // access provider for selection mode
+    final vm = context.watch<MainProvider>();
+    final isSelectionMode = vm.selection.isSelectionMode;
+    final isSelected = vm.selection.isItemSelected(widget.item!.id);
+
     // logic extraction
     final hasThumb = widget.item!.thumbnailPath != null && widget.thumbBaseDir != null;
     final fullThumbPath = hasThumb ? p.join(widget.thumbBaseDir!, widget.item!.thumbnailPath!) : null;
     final isAudio = widget.item!.fileType == 'audio';
     final isVideo = widget.item!.fileType == 'video';
 
-    // loaded state
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // layer 1: visual content
-            if (hasThumb && fullThumbPath != null)
-              Image.file(
-                File(fullThumbPath),
-                key: ValueKey(_safelyGetMTime(File(fullThumbPath))),
-                fit: BoxFit.cover,
-                errorBuilder: (ctx, err, stack) => const Center(
-                  child: Icon(Icons.broken_image, color: Colors.grey)
-                ), // if the file was deleted manually, show broken image
-              )
-            else if (isAudio)
-              Center(
-                child: Icon(
-                  Icons.audiotrack_rounded,
-                  size: 48,
-                  color: Theme.of(context).colorScheme.primary
-                )
-              )
-            else
-              const Center(
-                child: Icon(
-                  Icons.insert_drive_file_outlined,
-                  size: 48,
-                  color: Colors.grey
-                )
+    Widget baseContent = Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // layer 1: visual content
+          if (hasThumb && fullThumbPath != null)
+            Image.file(
+              File(fullThumbPath),
+              key: ValueKey(_safelyGetMTime(File(fullThumbPath))),
+              fit: BoxFit.cover,
+              errorBuilder: (ctx, err, stack) => const Center(
+                child: Icon(Icons.broken_image, color: Colors.grey)
               ),
-
-            // layer 2: duration badge (video/audio)
-            if ((isVideo || isAudio) && (widget.item!.duration ?? 0) > 0)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(4),
+            )
+          else if (isAudio)
+            Center(
+              child: Icon(
+                Icons.audiotrack_rounded,
+                size: 48,
+                color: Theme.of(context).colorScheme.primary
+              )
+            )
+          else
+            const Center(
+              child: Icon(
+                Icons.insert_drive_file_outlined,
+                size: 48,
+                color: Colors.grey
+              )
+            ),
+          
+          // layer 2 duration badge (video/audio file type)
+          if ((isVideo || isAudio) && (widget.item!.duration ?? 0) > 0)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _formatDuration(widget.item!.duration!),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14
                   ),
-                  child: Text(
-                    _formatDuration(widget.item!.duration!),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (isSelectionMode) {
+      // MODE: Selection
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => vm.selection.toggleItem(widget.item!.id),
+          child: Stack(
+            children: [
+              // thumbnail and duration badge
+              Positioned.fill(child: baseContent),
+
+              // quarter circle background behind checkbox
+              Positioned(
+                top: 0,
+                left: 0,
+                width: 60,
+                height: 60,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF181a1a),
+                    borderRadius: BorderRadius.only(
+                      bottomRight: Radius.circular(60),
+                      topLeft: Radius.circular(8),
                     ),
                   ),
                 ),
               ),
 
-            // on hover layers
-            if (_isHovered) ...[
-              // layer 3 dark overlay (on hover)
+              // selection overlay
+              // only visible if item is selected
+              if (isSelected)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: SelectionBorderPainter(
+                      color: const Color(0xFF65c2b2),
+                      cutoutRadius: 60.0,
+                      borderRadius: 8.0,
+                    ),
+                  ),
+                ),
+              
+              // checkbox icon
+              Positioned(
+                top: 6,
+                left: 6,
+                child: Icon(
+                  isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                  color: isSelected ? const Color(0xFF65c2b2) : Colors.white,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      // MODE: Default
+      return MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Stack(
+          children: [
+            // thumbnail and duration badge
+            Positioned.fill(child: baseContent),
+
+            // hover effects
+            // dark overlay
+            if (_isHovered)
               Positioned.fill(
                 child: Container(
                   color: Colors.black.withValues(alpha: 0.6),
                 ),
               ),
-
-              // layer 4: quadrant command buttons
+            
+            // quadrant command buttons
+            if (_isHovered)
               Positioned.fill(
                 child: Column(
                   children: [
@@ -176,12 +247,12 @@ class _MediaCellState extends State<_MediaCell> {
                         children: [
                           QuadrantButton( // copy
                             icon: Icons.content_copy_rounded,
-                            hoverColor: Color(0xFFFFC600),
+                            hoverColor: const Color(0xFFFFC600),
                             onTap: () => MediaActionService.onCopy(context, widget.item!),
                           ),
                           QuadrantButton( // edit
                             icon: Icons.edit_rounded,
-                            hoverColor: Color(0xFF25BB00),
+                            hoverColor: const Color(0xFF25BB00),
                             onTap: () => MediaActionService.onEdit(context, widget.item!),
                           ),
                         ],
@@ -191,14 +262,14 @@ class _MediaCellState extends State<_MediaCell> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          QuadrantButton(
+                          QuadrantButton( // enlarge
                             icon: Icons.fullscreen_rounded,
-                            hoverColor: Color(0xFF4FAFFF),
+                            hoverColor: const Color(0xFF4FAFFF),
                             onTap: () => MediaActionService.onEnlarge(context, widget.item!),
                           ),
                           QuadrantButton(
                             icon: Icons.delete_outline_rounded,
-                            hoverColor: Color(0xFFFF5454),
+                            hoverColor: const Color(0xFFFF5454),
                             onTap: () => MediaActionService.onDelete(context, widget.item!),
                           ),
                         ],
@@ -207,11 +278,10 @@ class _MediaCellState extends State<_MediaCell> {
                   ],
                 ),
               ),
-            ]
           ],
         ),
-      ),
-    );
+      );
+    }
   }
 
   String _formatDuration(int ms) {

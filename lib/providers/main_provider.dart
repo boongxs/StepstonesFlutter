@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../locator.dart';
 import '../data/app_database.dart';
+
 import '../controllers/session_controller.dart';
 import '../controllers/gallery_controller.dart';
 import '../controllers/sync_controller.dart';
+import '../controllers/selection_controller.dart';
 
 class MainProvider extends ChangeNotifier {
   late final SessionController session;
   late final GalleryController gallery;
   late final SyncController sync;
+  late final SelectionController selection;
 
   String? _previousPath;
 
@@ -18,6 +21,7 @@ class MainProvider extends ChangeNotifier {
     session = SessionController();
     gallery = GalleryController(db, session);
     sync = SyncController(db, session, gallery);
+    selection = SelectionController(db, session, gallery);
 
     session.addListener(() {
       // if the folder path has changed and isn't null
@@ -31,9 +35,9 @@ class MainProvider extends ChangeNotifier {
       
       notifyListeners();
     });
-
     gallery.addListener(notifyListeners);
     sync.addListener(notifyListeners);
+    selection.addListener(notifyListeners);
   }
 
   // load saved settings when app starts
@@ -46,10 +50,12 @@ class MainProvider extends ChangeNotifier {
     session.removeListener(notifyListeners);
     gallery.removeListener(notifyListeners);
     sync.removeListener(notifyListeners);
+    selection.removeListener(notifyListeners);
 
     session.dispose();
     gallery.dispose();
     sync.dispose();
+    selection.dispose();
 
     super.dispose();
   }

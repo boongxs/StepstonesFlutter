@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../locator.dart';
 import '../providers/main_provider.dart';
+
 import '../widgets/action_button.dart';
 import '../widgets/upload_status_card.dart';
 import '../widgets/sync_status_card.dart';
 import '../widgets/media_grid.dart';
+import '../widgets/selection_mode_card.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -17,12 +19,13 @@ class MainScreen extends StatelessWidget {
       create: (_) => getIt<MainProvider>()..initialize(),
       child: Builder(
         builder: (context) {
+          final vm = context.watch<MainProvider>();
 
       return Scaffold(
         // 2. Use a Stack to allow the UploadStatusCard to float above the main content
         body: Stack(
           children: [
-            // --- LAYER 1: MAIN CONTENT ---
+            // --- MAIN CONTENT ---
             Positioned.fill(
               child: Center(
                 child: Column(
@@ -38,7 +41,6 @@ class MainScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 90),
                     ),
 
-                    // Gap
                     const SizedBox(height: 20),
 
                     // --- SEARCH BOX (Static UI for now) ---
@@ -67,7 +69,6 @@ class MainScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // Gap
                     const SizedBox(height: 20),
 
                     // --- ACTION BUTTONS ROW ---
@@ -83,6 +84,7 @@ class MainScreen extends StatelessWidget {
                               tooltip: "Select Media Folder",
                               onPressed: vm.session.selectFolder,
                             ),
+
                             const SizedBox(width: 10),
 
                             // 2. Upload Files
@@ -91,6 +93,7 @@ class MainScreen extends StatelessWidget {
                               tooltip: "Upload Files",
                               onPressed: vm.sync.uploadFiles,
                             ),
+
                             const SizedBox(width: 10),
 
                             // 3. Refresh
@@ -99,12 +102,22 @@ class MainScreen extends StatelessWidget {
                               tooltip: "Refresh File Count",
                               onPressed: vm.sync.performFullSync,
                             ),
+
+                            const SizedBox(width: 10),
+
+                            // 4. Selection Mode
+                            ActionButton(
+                              icon: Icons.checklist_rtl_rounded,
+                              tooltip: "Selection Mode",
+                              onPressed: vm.gallery.totalItemCount > 0 
+                                ? vm.selection.toggleSelectionMode 
+                                : null,
+                            ),
                           ],
                         );
                       },
                     ),
 
-                    // Gap
                     const SizedBox(height: 20),
 
                     // --- MAIN CONTENT AREA (Displays Path & Count) ---
@@ -116,7 +129,7 @@ class MainScreen extends StatelessWidget {
               ),
             ),
 
-            // --- LAYER 2: SYNC STATUS CARD ---
+            // --- SYNC STATUS CARD ---
             Positioned(
               bottom: 20,
               right: 20,
@@ -132,13 +145,21 @@ class MainScreen extends StatelessWidget {
               ),
             ),
 
-            // --- LAYER 3: FLOATING UPLOAD STATUS CARD ---
+            // --- UPLOAD STATUS CARD ---
             const Positioned(
               right: 20,
               bottom: 20,
               // This widget handles its own visibility via its internal Consumer
               child: UploadStatusCard(),
             ),
+
+            // --- SELECTION MODE CARD ---
+            if (vm.selection.isSelectionMode)
+              const Positioned(
+                top: 20,
+                right: 20,
+                child: SelectionModeCard(),
+              ),
           ],
         ),
       );

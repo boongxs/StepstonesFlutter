@@ -123,6 +123,26 @@ class AppDatabase extends _$AppDatabase {
       tags: Value(newTags),
     ));
   }
+
+  // get all IDs in the current folder
+  Future<List<int>> getAllIdsInFolder(String folderPath) {
+    final query = select(mediaItems)
+      ..where((t) => t.mediaFolderPath.equals(folderPath));
+
+    return query.map((row) => row.id).get();
+  }
+
+  // get specific MediaItems by ID list
+  Future<List<MediaItem>> getMediaItemsByIds(List<int> ids) {
+    return (select(mediaItems)
+      ..where((t) => t.id.isIn(ids))
+    ).get();
+  }
+
+  // batch delete from database
+  Future<void> deleteMediaItemsById(List<int> ids) {
+    return (delete(mediaItems)..where((t) => t.id.isIn(ids))).go();
+  }
 }
 
 // connection helper
