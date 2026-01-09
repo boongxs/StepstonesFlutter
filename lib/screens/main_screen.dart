@@ -26,21 +26,6 @@ class MainScreen extends StatelessWidget {
         // 2. Use a Stack to allow the UploadStatusCard to float above the main content
         body: Stack(
           children: [
-            // --- VERSION NUMBER ---
-            Positioned(
-              top: 10,
-              left: 15,
-              child: Text(
-                "v${AppConstants.appVersion}",
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-
             // --- MAIN CONTENT ---
             Positioned.fill(
               child: Center(
@@ -176,6 +161,21 @@ class MainScreen extends StatelessWidget {
               top: vm.selection.isSelectionMode ? 20 : -200,
               right: 20,
               child: const SelectionModeCard(),
+            ),
+
+            // --- VERSION NUMBER ---
+            Positioned(
+              top: 10,
+              left: 15,
+              child: Text(
+                "v${AppConstants.appVersion}",
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),

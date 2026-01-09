@@ -170,6 +170,27 @@ class _MediaCellState extends State<_MediaCell> {
                 ),
               ),
             ),
+          
+          if (widget.item!.fileType == 'gif')
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  "GIF",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
