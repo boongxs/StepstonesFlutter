@@ -31,29 +31,41 @@ class MediaGrid extends StatelessWidget {
           ? p.join(vm.session.appSupportPath!, 'thumbnails')
           : null;
 
-        return GridView.builder(
+        return RawScrollbar(
           controller: vm.gallery.scrollController,
-          padding: const EdgeInsets.all(10),
-          itemCount: vm.gallery.totalItemCount, // virtualization: exact count ensures scrollbar is correct
+          thumbVisibility: true,
+          trackVisibility: true,
+          interactive: true,
+          minThumbLength: 50,
+          thickness: 10,
+          radius: const Radius.circular(5),
+          thumbColor: Colors.grey.withValues(alpha: 0.6),
 
-          // responsive layout
-          gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
-            minCrossAxisExtent: 270, // cells will be around 500px wide
-            mainAxisExtent: 250, // cells will be exactly 250px tall
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
+          child: GridView.builder(
+            controller: vm.gallery.scrollController,
+
+            padding: const EdgeInsets.all(10),
+            itemCount: vm.gallery.totalItemCount, // item count ensures scrollbar resizes properly
+          
+            // responsive layout
+            gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
+              minCrossAxisExtent: 270, // cells will be around 500px wide
+              mainAxisExtent: 250, // cells will be exactly 250px tall
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+          
+            itemBuilder: (context, index) {
+              // ask provider for data, if null trigger fetch
+              final MediaItem? item = vm.gallery.getItem(index);
+              return _MediaCell(
+                key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
+                item: item, 
+                index: index,
+                thumbBaseDir: thumbBaseDir
+              );
+            },
           ),
-
-          itemBuilder: (context, index) {
-            // ask provider for data, if null trigger fetch
-            final MediaItem? item = vm.gallery.getItem(index);
-            return _MediaCell(
-              key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
-              item: item, 
-              index: index,
-              thumbBaseDir: thumbBaseDir
-            );
-          },
         );
       },
     );
