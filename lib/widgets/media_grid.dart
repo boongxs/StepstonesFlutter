@@ -244,7 +244,10 @@ class _MediaCellState extends State<_MediaCell> {
             if (_isHovered)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  )
                 ),
               ),
             

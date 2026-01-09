@@ -10,9 +10,6 @@ class SelectionModeCard extends StatelessWidget {
     final vm = context.watch<MainProvider>();
     final selection = vm.selection;
 
-    // if not in selection mode, don't render anything
-    if (!selection.isSelectionMode) return const SizedBox.shrink();
-
     return Container(
       width: 300,
       padding: const EdgeInsets.all(16),

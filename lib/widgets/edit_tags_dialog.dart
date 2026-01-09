@@ -65,6 +65,7 @@ class _EditTagsDialogState extends State<EditTagsDialog> {
                 ),
                 child: TextField(
                   controller: _controller,
+                  autofocus: true,
                   maxLines: null, // allow multiline
                   expands: true,
                   style: const TextStyle(color: Colors.white, fontSize: 16),

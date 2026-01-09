@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../locator.dart';
 import '../providers/main_provider.dart';
+import '../constants.dart';
 
 import '../widgets/action_button.dart';
 import '../widgets/upload_status_card.dart';
@@ -25,6 +26,21 @@ class MainScreen extends StatelessWidget {
         // 2. Use a Stack to allow the UploadStatusCard to float above the main content
         body: Stack(
           children: [
+            // --- VERSION NUMBER ---
+            Positioned(
+              top: 10,
+              left: 15,
+              child: Text(
+                "v${AppConstants.appVersion}",
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
             // --- MAIN CONTENT ---
             Positioned.fill(
               child: Center(
@@ -154,12 +170,13 @@ class MainScreen extends StatelessWidget {
             ),
 
             // --- SELECTION MODE CARD ---
-            if (vm.selection.isSelectionMode)
-              const Positioned(
-                top: 20,
-                right: 20,
-                child: SelectionModeCard(),
-              ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutBack,
+              top: vm.selection.isSelectionMode ? 20 : -200,
+              right: 20,
+              child: const SelectionModeCard(),
+            ),
           ],
         ),
       );
