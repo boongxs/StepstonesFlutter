@@ -6,6 +6,7 @@ import 'clipboard_service.dart';
 import '../providers/main_provider.dart';
 import 'package:provider/provider.dart';
 import '../widgets/media_viewer_dialog.dart';
+import '../controllers/gallery_controller.dart';
 
 class MediaActionService {
   MediaActionService._();
@@ -62,7 +63,7 @@ class MediaActionService {
       _showSnackBar(context, "Viewer for ${item.fileType} not implemented.", isError: true);
       return;
     }
-    
+
     await showDialog(
       context: context,
       barrierDismissible: true,
@@ -101,6 +102,7 @@ class MediaActionService {
 
     // perform deletion
     final provider = context.read<MainProvider>();
+    await provider.gallery.performOptimisticDelete(item.id);
     final success = await provider.gallery.deleteItem(item);
 
     // show feedback

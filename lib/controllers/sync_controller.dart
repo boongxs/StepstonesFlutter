@@ -226,7 +226,7 @@ class SyncController extends ChangeNotifier {
     if (silent) _currentSyncingFilename = "";
 
     // queue empty -> refresh
-    await _gallery.fullRefresh();
+    await _gallery.fullRefresh(resetScroll: false);
 
     if (!silent) statusProvider.finishUpload();
     _isUploading = false;

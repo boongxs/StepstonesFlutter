@@ -57,11 +57,22 @@ class MediaGrid extends StatelessWidget {
             itemBuilder: (context, index) {
               // ask provider for data, if null trigger fetch
               final MediaItem? item = vm.gallery.getItem(index);
-              return _MediaCell(
-                key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
-                item: item, 
-                index: index,
-                thumbBaseDir: thumbBaseDir
+              final isDeleting = item != null && vm.gallery.isItemAnimating(item.id);
+
+              return AnimatedScale(
+                scale: isDeleting ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInBack,
+                child: AnimatedOpacity(
+                  opacity: isDeleting ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: _MediaCell(
+                    key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
+                    item: item, 
+                    index: index,
+                    thumbBaseDir: thumbBaseDir
+                  ),
+                ),
               );
             },
           ),

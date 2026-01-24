@@ -80,6 +80,9 @@ class SelectionController extends ChangeNotifier {
     _isDeleting = true;
     notifyListeners();
 
+    final idsToDelete = _selectedItemIds.toList();
+    await _gallery.performBatchOptimisticDelete(idsToDelete);
+
     try {
       final itemsToDelete = await _db.getMediaItemsByIds(_selectedItemIds.toList());
       const int batchSize = 100;
@@ -130,7 +133,8 @@ class SelectionController extends ChangeNotifier {
       }
 
       LogService.i('Batch Delete: Successfully deleted ${_selectedItemIds.length} items.');
-      await _gallery.refreshLibrary(); // refresh grid
+      await _gallery.fullRefresh(resetScroll: false); // refresh grid
+      _gallery.clearAnimatingItems(idsToDelete);
 
       _selectedItemIds.clear();
       _areAllSelected = false;
@@ -143,6 +147,7 @@ class SelectionController extends ChangeNotifier {
       }
     } catch (e) {
       LogService.e("Error executing batch delete");
+      _gallery.clearAnimatingItems(idsToDelete);
     } finally {
       _isDeleting = false;
       notifyListeners();

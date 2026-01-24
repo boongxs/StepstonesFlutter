@@ -19,6 +19,10 @@ class GalleryController extends ChangeNotifier {
   String? _currentSearchQuery = "";
   Timer? _searchDebounceTimer;
 
+  // --- delete animation state ---
+  final Set<int> _itemsAnimatingOut = {};
+  bool isItemAnimating(int id) => _itemsAnimatingOut.contains(id); 
+
   // --- pagination cache ---
   static const int _pageSize = 50;
   static const int _maxPagesInMemory = 4;
@@ -66,17 +70,48 @@ class GalleryController extends ChangeNotifier {
   }
 
   /// heavy refresh to clear cache and for filtering search
-  Future<void> fullRefresh() async {
+  Future<void> fullRefresh({bool resetScroll = true}) async {
     _invalidateCache();
     await refreshLibrary();
-    if (scrollController.hasClients && _totalItemCount > 0) {
+
+    // only jump to top if search query changed or manual refresh button
+    if (resetScroll && scrollController.hasClients && _totalItemCount > 0) {
       scrollController.jumpTo(0); // scroll to top on full refresh
     }
+  }
+
+  // --- animation helpers ---
+  // single item delete 
+  Future<void> performOptimisticDelete(int id) async {
+    _itemsAnimatingOut.add(id);
+    notifyListeners();
+
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  // batch delete
+  Future<void> performBatchOptimisticDelete(List<int> ids) async {
+    _itemsAnimatingOut.addAll(ids);
+    notifyListeners();
+
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  // cleanup helper
+  void clearAnimatingItems(List<int> ids) {
+    _itemsAnimatingOut.removeAll(ids);
+    notifyListeners();
   }
 
   // --- CRUD actions ---
   Future<bool> deleteItem(MediaItem item) async {
     try {
+      // save current scroll position
+      double previousOffset = 0.0;
+      if (scrollController.hasClients) {
+        previousOffset = scrollController.offset;
+      }
+
       // delete the media file from disk
       final folder = _session.mediaFolderPath;
       if (folder != null) {
@@ -93,10 +128,31 @@ class GalleryController extends ChangeNotifier {
 
       // remove record for deleted media file from database
       await _database.deleteMediaItem(item.id);
-      await fullRefresh(); // update UI right away
+
+      // refresh data
+      await fullRefresh(resetScroll: false);
+
+      // restore scroll position
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (scrollController.hasClients) {
+          // ensure we don't jump past the new bottom of the list
+          final maxExtent = scrollController.position.maxScrollExtent;
+          final targetOffset = (previousOffset > maxExtent) ? maxExtent : previousOffset;
+
+          scrollController.jumpTo(targetOffset);
+        }
+
+        _itemsAnimatingOut.remove(item.id);
+        notifyListeners();
+      });
+
       return true;
     } catch (e) {
       LogService.e("Failed to delete item: $e");
+
+      _itemsAnimatingOut.remove(item.id);
+      notifyListeners();
+
       return false;
     }
   }
@@ -120,8 +176,7 @@ class GalleryController extends ChangeNotifier {
     _searchDebounceTimer?.cancel();
     _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () async {
       _currentSearchQuery = text;
-      await fullRefresh();
-      if (scrollController.hasClients) scrollController.jumpTo(0);
+      await fullRefresh(resetScroll: true);
     });
   }
 
