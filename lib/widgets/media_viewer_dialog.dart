@@ -101,19 +101,18 @@ class MediaViewerDialog extends StatelessWidget {
     double h = dbHeight.toDouble();
     final aspectRatio = w / h;
 
-    // constraint 1: upscale if below 400x400 (small media files)
-    if (w < 400 && h < 400) {
-      // scale until the smaller side hits 400
-      if (w < h) {
-        w = 400;
-        h = w / aspectRatio;
-      } else {
-        h = 400;
-        w = h * aspectRatio;
-      }
+    // constraint 1: upscale so both sides are at least 400px
+    if (w < 400 || h < 400) {
+      double scaleW = 400 / w;
+      double scaleH = 400 / h;
+
+      double finalScale = (scaleW > scaleH) ? scaleW : scaleH;
+
+      w = w * finalScale;
+      h = h * finalScale;
     }
 
-    // constraint 2: shrink to fit the application window
+    // constraint 2: shrink to fit the application window if previous result is too large
     if (w > maxSize.width) {
       w = maxSize.width;
       h = w / aspectRatio;

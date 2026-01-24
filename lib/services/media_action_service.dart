@@ -62,7 +62,7 @@ class MediaActionService {
       _showSnackBar(context, "Viewer for ${item.fileType} not implemented.", isError: true);
       return;
     }
-
+    
     await showDialog(
       context: context,
       barrierDismissible: true,
