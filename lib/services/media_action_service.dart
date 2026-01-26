@@ -6,7 +6,6 @@ import 'clipboard_service.dart';
 import '../providers/main_provider.dart';
 import 'package:provider/provider.dart';
 import '../widgets/media_viewer_dialog.dart';
-import '../controllers/gallery_controller.dart';
 
 class MediaActionService {
   MediaActionService._();

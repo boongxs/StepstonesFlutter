@@ -40,41 +40,44 @@ class MediaGrid extends StatelessWidget {
           thickness: 10,
           radius: const Radius.circular(5),
           thumbColor: Colors.grey.withValues(alpha: 0.6),
-
-          child: GridView.builder(
-            controller: vm.gallery.scrollController,
-            padding: const EdgeInsets.all(10),
-            itemCount: vm.gallery.totalItemCount, // item count ensures scrollbar resizes properly
-          
-            // responsive layout
-            gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
-              minCrossAxisExtent: 270, // cells will be around 500px wide
-              mainAxisExtent: 250, // cells will be exactly 250px tall
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-          
-            itemBuilder: (context, index) {
-              // ask provider for data, if null trigger fetch
-              final MediaItem? item = vm.gallery.getItem(index);
-              final isDeleting = item != null && vm.gallery.isItemAnimating(item.id);
-
-              return AnimatedScale(
-                scale: isDeleting ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInBack,
-                child: AnimatedOpacity(
-                  opacity: isDeleting ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: _MediaCell(
-                    key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
-                    item: item, 
-                    index: index,
-                    thumbBaseDir: thumbBaseDir
+          padding: const EdgeInsets.only(right: 5.0),
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: GridView.builder(
+              controller: vm.gallery.scrollController,
+              padding: const EdgeInsets.all(20),
+              itemCount: vm.gallery.totalItemCount, // item count ensures scrollbar resizes properly
+            
+              // responsive layout
+              gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
+                minCrossAxisExtent: 270, // cells will be around 500px wide
+                mainAxisExtent: 250, // cells will be exactly 250px tall
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+            
+              itemBuilder: (context, index) {
+                // ask provider for data, if null trigger fetch
+                final MediaItem? item = vm.gallery.getItem(index);
+                final isDeleting = item != null && vm.gallery.isItemAnimating(item.id);
+            
+                return AnimatedScale(
+                  scale: isDeleting ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInBack,
+                  child: AnimatedOpacity(
+                    opacity: isDeleting ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: _MediaCell(
+                      key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
+                      item: item, 
+                      index: index,
+                      thumbBaseDir: thumbBaseDir
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         );
       },
