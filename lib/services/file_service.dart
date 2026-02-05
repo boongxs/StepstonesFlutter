@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:xxh3/xxh3.dart';
 import 'logger_service.dart';
+import 'dart:async';
+import 'dart:isolate';
 
 class CopyResponse {
   final CopyResult status;
@@ -14,6 +16,102 @@ class CopyResponse {
 
 enum CopyResult { success, duplicate, failure }
 
+class CopyRequest {
+  final String sourcePath;
+  final String destFolder;
+  final SendPort sendPort;
+
+  CopyRequest(this.sourcePath, this.destFolder, this.sendPort);
+}
+
+class IsolateResponse {
+  final double? progress;
+  final CopyResponse? result;
+
+  IsolateResponse.progress(this.progress) : result = null;
+  IsolateResponse.result(this.result) : progress = null;
+}
+
+Future<void> _isolateEntry(CopyRequest request) async {
+  final sourceFile = File(request.sourcePath);
+  final tempFileName = "${DateTime.now().millisecondsSinceEpoch}_${p.basename(request.sourcePath)}.tmp";
+  final tempFilePath = p.join(request.destFolder, tempFileName);
+
+  try {
+    final totalBytes = await sourceFile.length();
+    final hasher = XXH3State.create();
+    final inputStream = sourceFile.openRead();
+    final outputSink = File(tempFilePath).openWrite();
+
+    int bytesCopied = 0;
+
+    await inputStream.listen(
+      (List<int> chunk) {
+        hasher.update(Uint8List.fromList(chunk));
+
+        // write to disk
+        outputSink.add(chunk);
+
+        // send progress back to main thread
+        bytesCopied += chunk.length;
+        request.sendPort.send(IsolateResponse.progress(bytesCopied / totalBytes));
+      },
+      cancelOnError: true,
+    ).asFuture();
+
+    await outputSink.flush();
+    await outputSink.close();
+
+    // finalize hash
+    final hashInt = hasher.digest();
+    final hashString = hashInt.toRadixString(16).toUpperCase();
+
+    // determine final path
+    final extension = p.extension(request.sourcePath);
+    final finalFileName = "$hashString$extension";
+    final finalDestPath = p.join(request.destFolder, finalFileName);
+
+    // check for duplicates
+    final finalFile = File(finalDestPath);
+    if (await finalFile.exists()) {
+      // clean up the temp file if duplicate
+      await File(tempFilePath).delete();
+
+      request.sendPort.send(IsolateResponse.result(
+        CopyResponse(
+          CopyResult.duplicate,
+          hash: hashString,
+          finalFileName: finalFileName,
+        )
+      ));
+
+      return;
+    }
+
+    // rename temp file to final name
+    await File(tempFilePath).rename(finalDestPath);
+
+    // send final success
+    final response = CopyResponse(
+      CopyResult.success, 
+      hash: hashString, 
+      finalFileName: finalFileName
+    );
+    request.sendPort.send(IsolateResponse.result(response));    
+  } catch (e) {
+    // attempt cleanup on failure
+    try {
+      final tempFile = File(tempFilePath);
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+    } catch (_) {}
+
+    // send failure
+    request.sendPort.send(IsolateResponse.result(CopyResponse(CopyResult.failure)));
+  }
+}
+
 class FileService {
   // copies file with a callback for file's progress
   Future<CopyResponse> copyFileWithProgress(
@@ -21,71 +119,46 @@ class FileService {
     String destFolder,
     Function(double) onProgress,
   ) async {
-    final tempFileName = '${DateTime.now().millisecondsSinceEpoch}_${p.basename(sourcePath)}.tmp';
-    final tempFilePath = p.join(destFolder, tempFileName);
+    // create port to receive messages from the isolate
+    final receivePort = ReceivePort();
 
     try {
-      final sourceFile = File(sourcePath);
-      final totalBytes = await sourceFile.length();
+      // spawn isolate
+      await Isolate.spawn(
+        _isolateEntry,
+        CopyRequest(sourcePath, destFolder, receivePort.sendPort)
+      );
 
-      final hasher = XXH3State.create();
+      // listen for the result
+      final completer = Completer<CopyResponse>();
 
-      final inputStream = sourceFile.openRead();
-      final outputSink = File(tempFilePath).openWrite();
+      receivePort.listen((message) {
+        if (message is IsolateResponse) {
+          if (message.progress != null) {
+            // update UI with progress
+            onProgress(message.progress!);
+          } else if (message.result != null) {
+            // operation finished
+            completer.complete(message.result);
+          }
+        }
+      });
 
-      int bytesCopied = 0;
+      // wait for the isolate to finish
+      final result = await completer.future;
 
-      // 3. pipe data manually to track progress
-      await inputStream.listen(
-        (List<int> chunk) {
-          hasher.update(Uint8List.fromList(chunk)); // feed hasher
-
-          outputSink.add(chunk); // write to disk
-
-          // update progress
-          bytesCopied += chunk.length;
-          onProgress(bytesCopied / totalBytes);
-        },
-        cancelOnError: true,
-      ).asFuture();
-
-      // 4. close/flush the file
-      await outputSink.flush();
-      await outputSink.close();
-
-      final hashInt = hasher.digest();
-      final hashString = hashInt.toRadixString(16).toUpperCase();
-
-      final extension = p.extension(sourcePath);
-      final finalFileName = '$hashString$extension';
-      final finalDestPath = p.join(destFolder, finalFileName);
-
-      // check for duplicate
-      final finalFile = File(finalDestPath);
-      if (await finalFile.exists()) {
-        LogService.w('Duplicate detected: $finalFileName. Deleting temp file.');
-        await File(tempFilePath).delete();
-        
-        return CopyResponse(CopyResult.duplicate, hash: hashString, finalFileName: finalFileName);
+      if (result.status == CopyResult.success) {
+        LogService.i("Uploaded: ${result.finalFileName}");
+      } else if (result.status == CopyResult.duplicate) {
+        LogService.w("Duplicate detected: ${result.finalFileName}");
       }
 
-      // rename temp file to final name
-      await File(tempFilePath).rename(finalDestPath);
-      LogService.i("Uploaded: $finalFileName");
-
-      return CopyResponse(CopyResult.success, hash: hashString, finalFileName: finalFileName);
+      return result;
     } catch (e) {
-      LogService.e('Error copying file from $sourcePath to $destFolder', e);
-
-      // cleanup temp file if exists
-      try {
-        final tempFile = File(tempFilePath);
-        if (await tempFile.exists()) {
-          await tempFile.delete();
-        }
-      } catch (_) {}
-
+      LogService.e("Error copying file from $sourcePath", e);
       return CopyResponse(CopyResult.failure);
+    } finally {
+      receivePort.close();
     }
   }
 

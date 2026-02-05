@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../locator.dart';
 import '../data/app_database.dart';
-
 import '../controllers/session_controller.dart';
 import '../controllers/gallery_controller.dart';
 import '../controllers/sync_controller.dart';
