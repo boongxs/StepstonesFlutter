@@ -5,12 +5,13 @@ import 'screens/main_screen.dart';
 import 'package:media_kit/media_kit.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized(); // initialize flutter engine
+  MediaKit.ensureInitialized(); // initialize media_kit package
 
-  await LogService.init();
+  await LogService.initialize(); // initialize logger
 
-  setupLocator();
+  setupLocator(); // register all singletons (services...)
+
   LogService.i('Application starting up...');
   runApp(const MainApp());
 }
@@ -23,7 +24,7 @@ class MainApp extends StatelessWidget {
     LogService.d("Building MyApp widget");
 
     return MaterialApp(
-      title: 'Stepstones',
+      title: "Stepstones",
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFF282828),
         colorScheme: ColorScheme.fromSeed(
@@ -34,7 +35,7 @@ class MainApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      home: const MainScreen(),
+      home: const MainScreen(), // start building Main Screen
     );
   }
 }

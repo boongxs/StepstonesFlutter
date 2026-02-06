@@ -143,6 +143,14 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteMediaItemsById(List<int> ids) {
     return (delete(mediaItems)..where((t) => t.id.isIn(ids))).go();
   }
+
+  // fetch full media items by filenames (for ghost cleanup)
+  Future<List<MediaItem>> getMediaItemsByFilenames(List<String> filenames, String folderPath) {
+    return (select(mediaItems)
+      ..where((t) => t.mediaFolderPath.equals(folderPath))
+      ..where((t) => t.hashedFileName.isIn(filenames))
+    ).get();
+  }
 }
 
 // connection helper

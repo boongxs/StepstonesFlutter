@@ -23,8 +23,9 @@ class MainProvider extends ChangeNotifier {
     selection = SelectionController(db, session, gallery);
 
     session.addListener(() {
-      // if the folder path has changed and isn't null
+      // is current media folder path different from previously saved?
       if (session.mediaFolderPath != _previousPath) {
+        // if yes, re-sync current media folder
         _previousPath = session.mediaFolderPath;
 
         if (session.mediaFolderPath != null) {
@@ -39,7 +40,7 @@ class MainProvider extends ChangeNotifier {
     selection.addListener(notifyListeners);
   }
 
-  // load saved settings when app starts
+  // load previously saved media folder path
   Future<void> initialize() async {
     await session.initialize();
   }

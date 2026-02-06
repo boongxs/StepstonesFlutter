@@ -5,10 +5,11 @@ import 'package:path_provider/path_provider.dart';
 class LogService {
   static File? _logFile;
 
-  static Future<void> init() async {
+  static Future<void> initialize() async {
     final dir = await getApplicationSupportDirectory();
     final logsDir = Directory(p.join(dir.path, 'logs'));
 
+    // does logs directory exist check
     if (!await logsDir.exists()) {
       await logsDir.create(recursive: true);
     }

@@ -70,64 +70,35 @@ class SyncController extends ChangeNotifier {
   }
 
   Future<void> performFullSync() async {
+    // get media folder path from Session Controller
     final folderPath = _session.mediaFolderPath;
     if (folderPath == null) return;
 
+    // set up sync status card
     _syncTimer?.cancel();
     _showSyncCard = true;
     _isSyncingWorkInProgress = true;
     _syncStatusText = "Synchronizing media folder...";
+
+    // show sync status card
     notifyListeners();
 
     bool hasError = false;
-
     try {
-      // get DB files
+      // get DB files for current media folder
       final dbFiles = await _database.getFilenamesInFolder(folderPath);
-      final dbFileSet = dbFiles.toSet();
 
-      // get disk files
+      // get disk files from current media folder
       final dir = Directory(folderPath);
       if (!await dir.exists()) return;
 
       final diskFilesList = dir.listSync()
         .whereType<File>()
-        .where((f) => !p.basename(f.path).endsWith('.tmp'))
+        .where((f) => !p.basename(f.path).endsWith(".tmp"))
         .toList();
-      
-      // orphans (disk: yes, DB: no)
-      final orphans = <String>[];
-      for (var file in diskFilesList) {
-        if (!dbFileSet.contains(p.basename(file.path))) {
-          orphans.add(file.path);
-        }
-      }
 
-      // ghosts (disk: no, DB: yes)
-      final diskFileSet = diskFilesList.map((f) => p.basename(f.path)).toSet();
-      final ghosts = <String>[];
-      for (var dbName in dbFiles) {
-        if (!diskFileSet.contains(dbName)) ghosts.add(dbName);
-      }
-
-      // cleanup ghosts
-      if (ghosts.isNotEmpty) {
-        LogService.i("Removing ${ghosts.length} ghosts...");
-        await _database.deleteMediaItems(ghosts,folderPath);
-        await _gallery.refreshLibrary();
-      }
-
-      // process orphans
-      if (orphans.isNotEmpty) {
-        LogService.i("Syncing ${orphans.length} orphans...");
-        _uploadQueue.addAll(orphans);
-        if (!_isUploading) {
-          await _processUploadQueue(silent: true);
-        }
-      } else {
-        // nothing to add, ensure counts are correct
-        await _gallery.fullRefresh();
-      }
+      await _handleGhosts(folderPath, dbFiles, diskFilesList);
+      await _handleOrphans(dbFiles.toSet(), diskFilesList);
     } catch (e) {
       LogService.e("Sync failed.", e);
       hasError = true;
@@ -232,6 +203,81 @@ class SyncController extends ChangeNotifier {
     _isUploading = false;
     LogService.i("Queue empty. Sync complete.");
     notifyListeners();
+  }
+
+  // helper: identify and remove ghosts
+  Future<void> _handleGhosts(
+    String folderPath,
+    List<String> dbFiles,
+    List<File> diskFiles,
+  ) async {
+    final diskFileSet = diskFiles.map((f) => p.basename(f.path)).toSet();
+    final ghosts = <String>[];
+
+    for (var dbName in dbFiles) {
+      if (!diskFileSet.contains(dbName)) {
+        ghosts.add(dbName);
+      }
+    }
+
+    if (ghosts.isNotEmpty) {
+      LogService.i("Removing ${ghosts.length} ghosts...");
+
+      // fetch full items so we know which thumbnails to delete
+      final ghostItems = await _database.getMediaItemsByFilenames(ghosts, folderPath);
+
+      // delete thumbnail files
+      if (_session.appSupportPath != null) {
+        final thumbDir = Directory(p.join(_session.appSupportPath!, "thumbnails"));
+
+        for (var item in ghostItems) {
+          if (item.thumbnailPath != null) {
+            try {
+              final thumbFile = File(p.join(thumbDir.path, item.thumbnailPath));
+              if (await thumbFile.exists()) {
+                await thumbFile.delete();
+              }
+            } catch (e) {
+              LogService.e("Failed to delete ghost thumbnail: ${item.thumbnailPath}", e);
+            }
+          }
+        }
+      }
+
+      // delete ghost database records
+      await _database.deleteMediaItems(ghosts, folderPath);
+
+      await _gallery.refreshLibrary();
+
+      LogService.i("Removed ${ghosts.length} ghosts.");
+    }
+  }
+
+  // helper: identify and process orphans
+  Future<void> _handleOrphans(
+    Set<String> dbFileSet,
+    List<File> diskFiles
+  ) async {
+    final orphans = <String>[];
+
+    for (var file in diskFiles) {
+      if (!dbFileSet.contains(p.basename(file.path))) {
+        orphans.add(file.path);
+      }
+    }
+
+    if (orphans.isNotEmpty) {
+      LogService.i("Syncing ${orphans.length} orphans...");
+      _uploadQueue.addAll(orphans);
+
+      // if we aren't already uploading, start the queue silently (no progress indicator)
+      if (!_isUploading) {
+        await _processUploadQueue(silent: true);
+      }
+    } else {
+      // if nothing was added, just ensure gallery is synced up
+      await _gallery.fullRefresh();
+    }
   }
 
   @override

@@ -14,11 +14,15 @@ class SessionController extends ChangeNotifier {
   String? _appSupportPath;
   String? get appSupportPath => _appSupportPath;
 
+  // load previously saved media folder path
   Future<void> initialize() async {
+    // store appdata path
     final dir = await getApplicationSupportDirectory();
     _appSupportPath = dir.path;
 
+    // store media folder path
     _mediaFolderPath = await _settingsService.loadMediaFolderPath();
+
     notifyListeners();
   }
 

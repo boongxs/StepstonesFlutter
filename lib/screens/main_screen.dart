@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../locator.dart';
 import '../providers/main_provider.dart';
 import '../constants.dart';
-
 import '../widgets/action_button.dart';
 import '../widgets/upload_status_card.dart';
 import '../widgets/sync_status_card.dart';
@@ -15,15 +14,13 @@ class MainScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Wrap the screen in the MainProvider so the UI can listen to state changes
     return ChangeNotifierProvider(
-      create: (_) => getIt<MainProvider>()..initialize(),
+      create: (_) => getIt<MainProvider>()..initialize(), // initialize Main Provider
       child: Builder(
         builder: (context) {
           final vm = context.watch<MainProvider>();
 
       return Scaffold(
-        // 2. Use a Stack to allow the UploadStatusCard to float above the main content
         body: Stack(
           children: [
             // --- MAIN CONTENT ---
@@ -33,7 +30,6 @@ class MainScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Top Gap
                     const SizedBox(height: 10),
 
                     // Title
@@ -44,7 +40,7 @@ class MainScreen extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // --- SEARCH BOX (Static UI for now) ---
+                    // --- SEARCH BOX---
                     Container(
                       width: 600,
                       height: 70,
@@ -121,7 +117,7 @@ class MainScreen extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // --- MAIN CONTENT AREA (Displays Path & Count) ---
+                    // --- MAIN CONTENT AREA ---
                     Expanded(
                       child: MediaGrid(),
                     ),
@@ -172,7 +168,7 @@ class MainScreen extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.3),
                   fontSize: 12,
-                  fontFamily: 'monospace',
+                  fontFamily: "monospace",
                   fontWeight: FontWeight.bold,
                 ),
               ),
