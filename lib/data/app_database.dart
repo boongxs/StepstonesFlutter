@@ -151,6 +151,14 @@ class AppDatabase extends _$AppDatabase {
       ..where((t) => t.hashedFileName.isIn(filenames))
     ).get();
   }
+
+  Future<void> updateThumbnail(String hashedFileName, String? newThumbnailPath) {
+    return (update(mediaItems)
+      ..where((t) => t.hashedFileName.equals(hashedFileName))
+    ).write(MediaItemsCompanion(
+      thumbnailPath: Value(newThumbnailPath),
+    ));
+  }
 }
 
 // connection helper

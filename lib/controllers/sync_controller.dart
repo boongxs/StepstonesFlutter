@@ -99,6 +99,7 @@ class SyncController extends ChangeNotifier {
 
       await _handleGhosts(folderPath, dbFiles, diskFilesList);
       await _handleOrphans(dbFiles.toSet(), diskFilesList);
+      await _validateThumbnails(folderPath);
     } catch (e) {
       LogService.e("Sync failed.", e);
       hasError = true;
@@ -277,6 +278,70 @@ class SyncController extends ChangeNotifier {
     } else {
       // if nothing was added, just ensure gallery is synced up
       await _gallery.fullRefresh();
+    }
+  }
+
+  // helper: check all valid items in current media folder and ensure they have thumbnails
+  Future<void> _validateThumbnails(String folderPath) async {
+    if (_session.appSupportPath == null) return;
+
+    final items = await _database.getItemsInFolder(folderPath);
+    final validTypes = const ["image", "video", "gif"];
+    final thumbDir = Directory(p.join(_session.appSupportPath!, "thumbnails"));
+    int restoredCount = 0;
+
+    for (var item in items) {
+      // skip types that don't need thumbnails (audio, unknown)
+      if (!validTypes.contains(item.fileType)) continue;
+
+      String? currentThumbPath = item.thumbnailPath;
+      bool needsGeneration = false;
+
+      // path exists in DB, but file is missing from disk
+      if (currentThumbPath != null) {
+        final thumbFile = File(p.join(thumbDir.path, currentThumbPath));
+        if (!await thumbFile.exists()) {
+          needsGeneration = true;
+        }
+      } else {
+        // path is NULL in DB which shouldn't happen for valid media items so regenerate thumbnail
+        needsGeneration = true;
+      }
+
+      if (needsGeneration) {
+        final sourcePath = p.join(folderPath, item.hashedFileName);
+
+        // only generate if source file actually exists
+        if (await File(sourcePath).exists()) {
+          try {
+            final newThumbPath = await ThumbnailHelper.generateThumbnail(
+              sourcePath: sourcePath,
+              fileType: item.fileType,
+              fileHash: item.fileHash,
+              durationMs: item.duration ?? 0,
+            );
+
+            // if the thumbnailPath was null or path changed, update DB record
+            if (item.thumbnailPath != newThumbPath) {
+              await _database.updateThumbnail(item.hashedFileName, newThumbPath);
+            }
+
+            // evict old image from Flutter's cache
+            if (newThumbPath != null) {
+              final fullThumbPath = p.join(thumbDir.path, newThumbPath);
+              await FileImage(File(fullThumbPath)).evict();
+              restoredCount++;
+            }
+          } catch (e) {
+            LogService.e("Failed to restore thumbnail for ${item.hashedFileName}", e);
+          }
+        }
+      }
+    }
+
+    if (restoredCount > 0) {
+      LogService.i("Restored $restoredCount missing thumbnails.");
+      await _gallery.refreshLibrary();
     }
   }
 
