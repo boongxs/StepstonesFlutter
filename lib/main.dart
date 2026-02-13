@@ -3,7 +3,7 @@ import 'locator.dart';
 import 'services/logger_service.dart';
 import 'screens/main_screen.dart';
 import 'package:media_kit/media_kit.dart';
-
+import 'services/media_action_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // initialize flutter engine
   MediaKit.ensureInitialized(); // initialize media_kit package
@@ -24,6 +24,7 @@ class MainApp extends StatelessWidget {
     LogService.d("Building MyApp widget");
 
     return MaterialApp(
+      scaffoldMessengerKey: MediaActionService.rootMessengerKey,
       title: "Stepstones",
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFF282828),

@@ -4,16 +4,15 @@ import 'package:stepstones_flt/widgets/edit_tags_dialog.dart';
 import '../data/app_database.dart';
 import 'clipboard_service.dart';
 import '../providers/main_provider.dart';
-import 'package:provider/provider.dart';
 import '../widgets/media_viewer_dialog.dart';
 
 class MediaActionService {
   MediaActionService._();
+  static final GlobalKey<ScaffoldMessengerState> rootMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   // copy command
   static Future<void> onCopy(BuildContext context, MediaItem item) async {
     final fullPath = p.join(item.mediaFolderPath, item.hashedFileName);
-
     final success = await ClipboardService.copyFile(fullPath);
 
     // UI feedback
@@ -27,7 +26,7 @@ class MediaActionService {
   }
 
   // edit command
-  static Future<void> onEdit(BuildContext context, MediaItem item) async {
+  static Future<void> onEdit(BuildContext context, MainProvider provider, MediaItem item) async {
     // open dialog
     final newTags = await showDialog<String>(
       context: context,
@@ -41,7 +40,6 @@ class MediaActionService {
     if (newTags == null) return;
 
     // save changes
-    final provider = context.read<MainProvider>();
     final success = await provider.gallery.updateTags(item, newTags);
 
     // ui feedback
@@ -55,7 +53,7 @@ class MediaActionService {
   }
 
   // enlarge command
-  static Future<void> onEnlarge(BuildContext context, MediaItem item) async {
+  static Future<void> onEnlarge(BuildContext context, MainProvider provider, MediaItem item) async {
     const allowedTypes = ['image', 'gif', 'video', 'audio'];
 
     if (!allowedTypes.contains(item.fileType)) {
@@ -67,12 +65,14 @@ class MediaActionService {
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.8),
-      builder: (ctx) => MediaViewerDialog(item: item),
+      builder: (ctx) => MediaViewerDialog(item: item, provider: provider),
     );
   }
 
-  // edit command
-  static Future<void> onDelete(BuildContext context, MediaItem item) async {
+  // delete command
+  static Future<bool> onDelete(BuildContext context, MainProvider provider, MediaItem item, {VoidCallback ? onConfirm}) async {
+    final messenger = rootMessengerKey.currentState ?? ScaffoldMessenger.of(context);
+
     // show confirmation dialog
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -97,21 +97,56 @@ class MediaActionService {
     );
 
     // if user clicked cancel or outside the box
-    if (shouldDelete != true) return;
+    if (shouldDelete != true) return false;
+
+    if (onConfirm != null) {
+      onConfirm();
+      // wait a moment for video player to completely dispose and release file locks before deletion
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
 
     // perform deletion
-    final provider = context.read<MainProvider>();
     await provider.gallery.performOptimisticDelete(item.id);
     final success = await provider.gallery.deleteItem(item);
 
     // show feedback
-    if (context.mounted) {
-      _showSnackBar(
-        context,
-        success ? "Successfully deleted media item" : "Failed to delete media item",
-        isError: !success,
-      );
-    }
+    _showSnackBarWithMessenger(
+      messenger,
+      success ? "Successfully deleted media item" : "Failed to delete media item",
+      isError: !success,
+    );
+
+    return success;
+  }
+
+  // helper to show notifications when context might be unmounted
+  static void _showSnackBarWithMessenger(ScaffoldMessengerState messenger, String message, {bool isError = false}) {
+    messenger.clearSnackBars();
+
+    final iconColor = isError ? Colors.redAccent : Colors.greenAccent;
+    final iconData = isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded;
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(iconData, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF303030),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        width: 350,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
   }
 
   // helper to show notifications

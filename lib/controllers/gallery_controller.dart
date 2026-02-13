@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import '../data/app_database.dart';
 import '../services/logger_service.dart';
 import 'session_controller.dart';
+import 'package:path_provider/path_provider.dart';
 
 class GalleryController extends ChangeNotifier {
   final AppDatabase _database;
@@ -112,25 +113,29 @@ class GalleryController extends ChangeNotifier {
         previousOffset = scrollController.offset;
       }
 
-      // delete the media file from disk
-      final folder = _session.mediaFolderPath;
-      if (folder != null) {
-        final sourceFile = File(p.join(folder, item.hashedFileName));
-        if (await sourceFile.exists()) await sourceFile.delete();
+      // delete the media file from disk (using safe session paths)
+      final sourceFile = File(p.join(item.mediaFolderPath, item.hashedFileName));
+      if (await sourceFile.exists()) {
+        await sourceFile.delete();
+      } else {
+        LogService.w("File not found during deletion: ${sourceFile.path}");
       }
 
       // delete the thumbnail file
-      final supportPath = _session.appSupportPath;
-      if (item.thumbnailPath != null && supportPath != null) {
-        final thumbFile = File(p.join(supportPath, 'thumbnails', item.thumbnailPath));
-        if (await thumbFile.exists()) await thumbFile.delete();
+      if (item.thumbnailPath != null) {
+        final appDir = await getApplicationSupportDirectory();
+        final thumbFile = File(p.join(appDir.path, 'thumbnails', item.thumbnailPath!));
+        if (await thumbFile.exists()) {
+          await thumbFile.delete();
+        }
       }
 
       // remove record for deleted media file from database
       await _database.deleteMediaItem(item.id);
 
-      // refresh data
-      await fullRefresh(resetScroll: false);
+      _itemsAnimatingOut.remove(item.id);
+      _invalidateCache();
+      await refreshLibrary();
 
       // restore scroll position
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -141,9 +146,6 @@ class GalleryController extends ChangeNotifier {
 
           scrollController.jumpTo(targetOffset);
         }
-
-        _itemsAnimatingOut.remove(item.id);
-        notifyListeners();
       });
 
       return true;
@@ -154,6 +156,16 @@ class GalleryController extends ChangeNotifier {
       notifyListeners();
 
       return false;
+    }
+  }
+
+  // helper method to clear deleted items from caches
+  void _removeItemFromCaches(int id) {
+    for (var page in _stalePageCache.values) {
+      page.removeWhere((item) => item.id == id);
+    }
+    for (var page in _pageCache.values) {
+      page.removeWhere((item) => item.id == id);
     }
   }
 

@@ -302,7 +302,7 @@ class _MediaCellState extends State<_MediaCell> {
                           QuadrantButton( // edit
                             icon: Icons.edit_rounded,
                             hoverColor: const Color(0xFF25BB00),
-                            onTap: () => MediaActionService.onEdit(context, widget.item!),
+                            onTap: () => MediaActionService.onEdit(context, vm, widget.item!),
                           ),
                         ],
                       ),
@@ -314,12 +314,12 @@ class _MediaCellState extends State<_MediaCell> {
                           QuadrantButton( // enlarge
                             icon: Icons.fullscreen_rounded,
                             hoverColor: const Color(0xFF4FAFFF),
-                            onTap: () => MediaActionService.onEnlarge(context, widget.item!),
+                            onTap: () => MediaActionService.onEnlarge(context, vm, widget.item!),
                           ),
                           QuadrantButton(
                             icon: Icons.delete_outline_rounded,
                             hoverColor: const Color(0xFFFF5454),
-                            onTap: () => MediaActionService.onDelete(context, widget.item!),
+                            onTap: () => MediaActionService.onDelete(context, vm, widget.item!),
                           ),
                         ],
                       ),
