@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 
 class LogService {
   static File? _logFile;
+  static final ValueNotifier<List<String>> liveLogs = ValueNotifier([]);
+  static const int _maxLogLines = 200;
 
   static Future<void> initialize() async {
     final dir = await getApplicationSupportDirectory();
@@ -27,6 +30,15 @@ class LogService {
     final timestamp = DateTime.now().toIso8601String();
     final logLine = '$timestamp $message';
 
+    // update logs view list
+    final currentLogs = List<String>.from(liveLogs.value);
+    currentLogs.add(logLine);
+    if (currentLogs.length > _maxLogLines) {
+      currentLogs.removeAt(0);
+    }
+    liveLogs.value = currentLogs;
+
+    // write to disk
     await _logFile?.writeAsString('$logLine\n', mode: FileMode.append, flush: true);
   }
 }

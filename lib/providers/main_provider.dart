@@ -14,6 +14,14 @@ class MainProvider extends ChangeNotifier {
 
   String? _previousPath;
 
+  bool _isShowingLogs = false;
+  bool get isShowingLogs => _isShowingLogs;
+
+  void toggleLogsView() {
+    _isShowingLogs = !_isShowingLogs;
+    notifyListeners();
+  }
+
   MainProvider() {
     final db = getIt<AppDatabase>();
 

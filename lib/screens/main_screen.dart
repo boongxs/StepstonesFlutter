@@ -8,6 +8,7 @@ import '../widgets/upload_status_card.dart';
 import '../widgets/sync_status_card.dart';
 import '../widgets/media_grid.dart';
 import '../widgets/selection_mode_card.dart';
+import '../widgets/logs_viewer.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -79,7 +80,9 @@ class MainScreen extends StatelessWidget {
                             ActionButton(
                               icon: Icons.folder,
                               tooltip: "Select Media Folder",
-                              onPressed: vm.session.selectFolder,
+                              onPressed: vm.isShowingLogs
+                                ? null
+                                : vm.session.selectFolder,
                             ),
 
                             const SizedBox(width: 10),
@@ -88,7 +91,9 @@ class MainScreen extends StatelessWidget {
                             ActionButton(
                               icon: Icons.upload_file,
                               tooltip: "Upload Files",
-                              onPressed: vm.sync.uploadFiles,
+                              onPressed: vm.isShowingLogs
+                                ? null
+                                : vm.sync.uploadFiles,
                             ),
 
                             const SizedBox(width: 10),
@@ -97,7 +102,9 @@ class MainScreen extends StatelessWidget {
                             ActionButton(
                               icon: Icons.refresh,
                               tooltip: "Refresh File Count",
-                              onPressed: vm.sync.performFullSync,
+                              onPressed: vm.isShowingLogs
+                                ? null
+                                : vm.sync.performFullSync,
                             ),
 
                             const SizedBox(width: 10),
@@ -106,9 +113,18 @@ class MainScreen extends StatelessWidget {
                             ActionButton(
                               icon: Icons.checklist_rtl_rounded,
                               tooltip: "Selection Mode",
-                              onPressed: vm.gallery.totalItemCount > 0 
+                              onPressed: (!vm.isShowingLogs && vm.gallery.totalItemCount > 0) 
                                 ? vm.selection.toggleSelectionMode 
                                 : null,
+                            ),
+
+                            const SizedBox(width: 10),
+
+                            // 5. Logs View Toggle
+                            ActionButton(
+                              icon: vm.isShowingLogs ? Icons.grid_view_rounded : Icons.terminal_rounded,
+                              tooltip: vm.isShowingLogs ? "Show Media Grid" : "Show Application Logs",
+                              onPressed: () => context.read<MainProvider>().toggleLogsView(),
                             ),
                           ],
                         );
@@ -119,7 +135,9 @@ class MainScreen extends StatelessWidget {
 
                     // --- MAIN CONTENT AREA ---
                     Expanded(
-                      child: MediaGrid(),
+                      child: vm.isShowingLogs
+                        ? const LogsViewer()
+                        : const MediaGrid(),
                     ),
                   ],
                 ),

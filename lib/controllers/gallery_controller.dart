@@ -159,16 +159,6 @@ class GalleryController extends ChangeNotifier {
     }
   }
 
-  // helper method to clear deleted items from caches
-  void _removeItemFromCaches(int id) {
-    for (var page in _stalePageCache.values) {
-      page.removeWhere((item) => item.id == id);
-    }
-    for (var page in _pageCache.values) {
-      page.removeWhere((item) => item.id == id);
-    }
-  }
-
   Future<bool> updateTags(MediaItem item, String rawTags) async {
     try {
       var cleaned = rawTags.trim().replaceAll(RegExp(r'\s+'), ' ');
