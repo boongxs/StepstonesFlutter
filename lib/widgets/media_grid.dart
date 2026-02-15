@@ -314,7 +314,7 @@ class _MediaCellState extends State<_MediaCell> {
                           QuadrantButton( // enlarge
                             icon: Icons.fullscreen_rounded,
                             hoverColor: const Color(0xFF4FAFFF),
-                            onTap: () => MediaActionService.onEnlarge(context, vm, widget.item!),
+                            onTap: () => MediaActionService.onEnlarge(context, vm, widget.index),
                           ),
                           QuadrantButton(
                             icon: Icons.delete_outline_rounded,

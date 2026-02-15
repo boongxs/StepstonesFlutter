@@ -53,7 +53,11 @@ class MediaActionService {
   }
 
   // enlarge command
-  static Future<void> onEnlarge(BuildContext context, MainProvider provider, MediaItem item) async {
+  static Future<void> onEnlarge(BuildContext context, MainProvider provider, int index) async {
+    // look up the item from provider using the index
+    final item = provider.gallery.getItem(index);
+    if (item == null) return;
+
     const allowedTypes = ['image', 'gif', 'video', 'audio'];
 
     if (!allowedTypes.contains(item.fileType)) {
@@ -65,7 +69,7 @@ class MediaActionService {
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.8),
-      builder: (ctx) => MediaViewerDialog(item: item, provider: provider),
+      builder: (ctx) => MediaViewerDialog(initialIndex: index, provider: provider),
     );
   }
 
