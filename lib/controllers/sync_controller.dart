@@ -12,6 +12,7 @@ import '../utils/media_helper.dart';
 import '../utils/metadata_helper.dart';
 import '../utils/thumbnail_helper.dart';
 import '../providers/upload_status_provider.dart';
+import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
 
@@ -19,6 +20,7 @@ class SyncController extends ChangeNotifier {
   final AppDatabase _database;
   final SessionController _session;
   final GalleryController _gallery;
+  final StatusCardProvider _jobStatus;
 
   final FileService _fileService = getIt<FileService>();
   final FilePickerService _filePickerService = getIt<FilePickerService>();
@@ -27,25 +29,11 @@ class SyncController extends ChangeNotifier {
   final List<String> _uploadQueue = [];
   bool _isUploading = false;
 
-  // sync status UI
-  bool _showSyncCard = false;
-  bool get showSyncCard => _showSyncCard;
-
-  String _syncStatusText = "";
-  String get syncStatusText => _syncStatusText;
-
-  Timer? _syncTimer;
-
-  bool _isSyncingWorkInProgress = false;
-  bool get isSyncingWorkInProgress => _isSyncingWorkInProgress;
-
-  String _currentSyncingFilename = "";
-  String get currentSyncingFilename => _currentSyncingFilename;
-
   SyncController(
     this._database,
     this._session,
     this._gallery,
+    this._jobStatus,
   );
 
   // --- actions ---
@@ -60,8 +48,8 @@ class SyncController extends ChangeNotifier {
 
     _uploadQueue.addAll(files);
 
-    final statusProvider = getIt<UploadStatusProvider>();
-    statusProvider.startUpload(files.length);
+    final uploadProgress = getIt<UploadStatusProvider>();
+    uploadProgress.startUpload(files.length);
     notifyListeners();
 
     if (!_isUploading) {
@@ -75,13 +63,12 @@ class SyncController extends ChangeNotifier {
     if (folderPath == null) return;
 
     // set up sync status card
-    _syncTimer?.cancel();
-    _showSyncCard = true;
-    _isSyncingWorkInProgress = true;
-    _syncStatusText = "Synchronizing media folder...";
+    _jobStatus.startJob("Synchronizing media folder");
 
     // show sync status card
     notifyListeners();
+
+    await _gallery.fullRefresh(resetScroll: false);
 
     bool hasError = false;
     try {
@@ -103,25 +90,19 @@ class SyncController extends ChangeNotifier {
     } catch (e) {
       LogService.e("Sync failed.", e);
       hasError = true;
-      _syncStatusText = "Synchronization failed";
     } finally {
-      _isSyncingWorkInProgress = false;
-
-      if (!hasError) {
-        _syncStatusText = "Media folder synchronized";
+      if (hasError) {
+        _jobStatus.finishJob("Synchronization failed", isError: true);
+      } else {
+        _jobStatus.finishJob("Media folder synchronized");
       }
       notifyListeners();
-
-      _syncTimer = Timer(const Duration(seconds: 2), () {
-        _showSyncCard = false;
-        notifyListeners();
-      });
     }
   }
 
   Future<void> _processUploadQueue({bool silent = false}) async {
     _isUploading = true;
-    final statusProvider = getIt<UploadStatusProvider>();
+    final uploadProgress = getIt<UploadStatusProvider>();
     final folderPath = _session.mediaFolderPath!;
 
     while (_uploadQueue.isNotEmpty) {
@@ -131,10 +112,9 @@ class SyncController extends ChangeNotifier {
 
       // update current filename for the sync card
       if (silent) {
-        _currentSyncingFilename = fileName;
-        notifyListeners();
+        _jobStatus.updateProgress(fileName);
       } else {
-        statusProvider.updateCurrentFile(fileName, 0);
+        uploadProgress.updateCurrentFile(fileName, 0);
       }
 
       // copy / import
@@ -142,25 +122,27 @@ class SyncController extends ChangeNotifier {
       if (isImport) {
         response = await _fileService.importFileWithProgress(
           sourcePath,
-          (p) => !silent ? statusProvider.updateProgress(p) : null
+          (p) => !silent ? uploadProgress.updateProgress(p) : null
         );
       } else {
         response = await _fileService.copyFileWithProgress(
           sourcePath, 
           folderPath, 
-          (p) => !silent ? statusProvider.updateProgress(p) : null
+          (p) => !silent ? uploadProgress.updateProgress(p) : null
         );
       }
 
       // DB insert / thumbnail generation
       if (response.status == CopyResult.success) {
         try {
-          final type = await MediaHelper.inferFileType(sourcePath);
-          final metadata = await MetadataHelper.extractMetadata(sourcePath, type);
+          final finalPath = p.join(folderPath, response.finalFileName!);
+
+          final type = await MediaHelper.inferFileType(finalPath);
+          final metadata = await MetadataHelper.extractMetadata(finalPath, type);
 
           // thumbnail generation on background thread
           final thumb = await ThumbnailHelper.generateThumbnail(
-            sourcePath: sourcePath, 
+            sourcePath: finalPath, 
             fileType: type, 
             fileHash: response.hash!, 
             durationMs: metadata.durationMs,
@@ -179,28 +161,30 @@ class SyncController extends ChangeNotifier {
           );
 
           await _database.insertMediaItem(entry);
-          if (!silent) statusProvider.completeFile();
+          if (!silent) uploadProgress.completeFile();
         } catch (e) {
           final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
           if (isDuplicate) {
-            if (!silent) statusProvider.markDuplicate();
+            if (!silent) uploadProgress.markDuplicate();
           } else {
-            if (!silent) statusProvider.markFailed();
+            if (!silent) uploadProgress.markFailed();
           }
         }
       } else if (response.status == CopyResult.duplicate) {
-        if (!silent) statusProvider.markDuplicate();
+        if (!silent) uploadProgress.markDuplicate();
       } else {
-        if (!silent) statusProvider.markFailed();
+        if (!silent) uploadProgress.markFailed();
       }
     }
 
-    if (silent) _currentSyncingFilename = "";
+    if (silent) {
+      _jobStatus.updateProgress("");
+    }
 
     // queue empty -> refresh
     await _gallery.fullRefresh(resetScroll: false);
 
-    if (!silent) statusProvider.finishUpload();
+    if (!silent) uploadProgress.finishUpload();
     _isUploading = false;
     LogService.i("Queue empty. Sync complete.");
     notifyListeners();
@@ -343,11 +327,5 @@ class SyncController extends ChangeNotifier {
       LogService.i("Restored $restoredCount missing thumbnails.");
       await _gallery.refreshLibrary();
     }
-  }
-
-  @override
-  void dispose() {
-    _syncTimer?.cancel();
-    super.dispose();
   }
 }

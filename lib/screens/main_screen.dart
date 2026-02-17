@@ -144,17 +144,17 @@ class MainScreen extends StatelessWidget {
               ),
             ),
 
-            // --- SYNC STATUS CARD ---
+            // --- SYNC / JOB STATUS CARD ---
             Positioned(
               bottom: 20,
               right: 20,
               child: Consumer<MainProvider>(
                 builder: (context, vm, _) {
                   return SyncStatusCard(
-                    text: vm.sync.syncStatusText,
-                    subtext: vm.sync.currentSyncingFilename,
-                    isVisible: vm.sync.showSyncCard,
-                    isLoading: vm.sync.isSyncingWorkInProgress
+                    text: vm.status.title,
+                    subtext: vm.status.subtitle,
+                    isVisible: vm.status.isVisible,
+                    isLoading: vm.status.isLoading
                   );
                 },
               ),

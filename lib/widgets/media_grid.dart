@@ -22,7 +22,7 @@ class MediaGrid extends StatelessWidget {
         }
 
         // show "no items" only if we are not currently syncing to avoid flicker on startup
-        if (vm.gallery.totalItemCount == 0 && !vm.sync.isSyncingWorkInProgress) {
+        if (vm.gallery.totalItemCount == 0 && !vm.status.isLoading) {
           return const Center(child: Text("No media items found"));
         }
 

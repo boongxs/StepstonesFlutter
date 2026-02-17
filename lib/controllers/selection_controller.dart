@@ -74,6 +74,11 @@ class SelectionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<List<MediaItem>> getSelectedItems() async {
+    if (_selectedItemIds.isEmpty) return [];
+    return await _db.getMediaItemsByIds(_selectedItemIds.toList());
+  }
+
   Future<void> deleteSelected() async {
     if (_selectedItemIds.isEmpty) return;
 

@@ -5,12 +5,14 @@ import '../controllers/session_controller.dart';
 import '../controllers/gallery_controller.dart';
 import '../controllers/sync_controller.dart';
 import '../controllers/selection_controller.dart';
+import 'status_card_provider.dart';
 
 class MainProvider extends ChangeNotifier {
   late final SessionController session;
   late final GalleryController gallery;
   late final SyncController sync;
   late final SelectionController selection;
+  late final StatusCardProvider status;
 
   String? _previousPath;
 
@@ -27,7 +29,8 @@ class MainProvider extends ChangeNotifier {
 
     session = SessionController();
     gallery = GalleryController(db, session);
-    sync = SyncController(db, session, gallery);
+    status = StatusCardProvider();
+    sync = SyncController(db, session, gallery, status);
     selection = SelectionController(db, session, gallery);
 
     session.addListener(() {
@@ -44,6 +47,7 @@ class MainProvider extends ChangeNotifier {
       notifyListeners();
     });
     gallery.addListener(notifyListeners);
+    status.addListener(notifyListeners);
     sync.addListener(notifyListeners);
     selection.addListener(notifyListeners);
   }
@@ -57,11 +61,13 @@ class MainProvider extends ChangeNotifier {
   void dispose() {
     session.removeListener(notifyListeners);
     gallery.removeListener(notifyListeners);
+    status.removeListener(notifyListeners);
     sync.removeListener(notifyListeners);
     selection.removeListener(notifyListeners);
 
     session.dispose();
     gallery.dispose();
+    status.dispose();
     sync.dispose();
     selection.dispose();
 

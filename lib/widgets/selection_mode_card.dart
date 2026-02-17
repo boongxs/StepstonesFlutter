@@ -1,6 +1,11 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/main_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import '../services/bundle_service.dart';
+import '../services/logger_service.dart';
 
 class SelectionModeCard extends StatelessWidget {
   const SelectionModeCard({super.key});
@@ -70,6 +75,110 @@ class SelectionModeCard extends StatelessWidget {
               );
             },
           ),
+
+          // bundle/extract button
+          if (selection.selectedCount > 0) ...[
+            const SizedBox(height: 4),
+
+            _HoverButton(
+              height: 40,
+              baseColor: Colors.transparent,
+              hoverColor: const Color(0xFF1a2733),
+              contentColor: const Color(0xFF64B5F6),
+              defaultContentColor: Colors.white,
+              onTap: () async {
+                final provider = context.read<MainProvider>();
+                final selectedItems = await provider.selection.getSelectedItems();
+
+                if (selectedItems.isEmpty) return;
+
+                provider.status.startJob("Packing media items...");
+
+                // create bundle in temp
+                final tempZipPath = await BundleService.createBundle(
+                  selectedItems,
+                  onProgress: (fileName) {
+                    // update card subtitle with current file
+                    provider.status.updateProgress(fileName);
+                  },
+                );
+
+                // error occurred
+                if (tempZipPath == null) {
+                  provider.status.finishJob("Packing failed", isError: true);
+                  if (context.mounted) {
+                    _showSnackBar(context, "Failed to create bundle", isError: true);
+                  }
+
+                  return;
+                }
+
+                // packing successful
+                provider.status.finishJob("Packing complete");
+
+                // ask user where to save
+                String? savePath = await FilePicker.platform.saveFile(
+                  dialogTitle: "Save Stepstones Bundle",
+                  fileName: "MyCollection.stepstone",
+                  type: FileType.custom,
+                  allowedExtensions: ["stepstone"],
+                );
+
+                if (savePath != null) {
+                  // update UI to show saving status
+                  provider.status.startJob("Saving to disk...");
+                  provider.status.updateProgress(savePath); // update subtitle text to show destination path
+
+                  LogService.i("Attempting to save bundle from: $tempZipPath to: $savePath");
+                  try {
+                    await compute(_moveFileInBackground, [tempZipPath, savePath]);
+
+                    LogService.i("Bundle saved successfully to: $savePath");
+                    provider.status.finishJob("Bundle saved");
+
+                    if (context.mounted) {
+                      _showSnackBar(context, "Bundle saved successfully");
+
+                      // exit selection mode on success
+                      provider.selection.toggleSelectionMode();
+                    }
+                  } catch (e) {
+                    LogService.e("Failed to save bundle file", e);
+
+                    provider.status.finishJob("Save failed", isError: true);
+
+                    if (context.mounted) {
+                      _showSnackBar(context, "Error saving file: $e", isError: true);
+                    }
+                  }
+                } else {
+                  try {
+                    // user cancelled save dialog, clean up temp file
+                    await compute(_cleanupTempFile, tempZipPath);
+
+                    provider.status.finishJob("Export cancelled");
+                  } catch (e) {
+                    LogService.w("Failed to delete temp bundle file: $tempZipPath");
+                  }
+                }
+              },
+              builder: (isHovered) {
+                final color = isHovered ? const Color(0xFF64B5F6) : Colors.white;
+                return Row(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, color: color, size: 20),
+
+                    const SizedBox(width: 12),
+
+                    Text(
+                      "Bundle selected",
+                      style: TextStyle(color: color, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
 
           // delete selected button
           if (selection.areAllSelected || selection.selectedCount > 0) ...[
@@ -144,6 +253,61 @@ class SelectionModeCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // helper method for snackbars
+  void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+
+    final iconColor = isError ? Colors.redAccent : Colors.greenAccent;
+    final iconData = isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(iconData, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF303030),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        width: 350,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
+
+Future<void> _moveFileInBackground(List<String> paths) async {
+  final sourcePath = paths[0];
+  final destPath = paths[1];
+
+  final source = File(sourcePath);
+  if (!await source.exists()) {
+    throw FileSystemException("Source bundle missing", sourcePath);
+  }
+
+  // heavy copy
+  await source.copy(destPath);
+  await source.delete(); // clean up temp file
+}
+
+Future<void> _cleanupTempFile(String path) async {
+  try {
+    final file = File(path);
+    if (await file.exists()) {
+      await file.delete();
+    }
+  } catch (_) {
+    // ignore errors during cleanup
   }
 }
 
