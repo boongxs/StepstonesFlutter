@@ -5,7 +5,6 @@ import 'services/settings_service.dart';
 import 'services/file_picker_service.dart';
 import 'services/file_service.dart';
 import 'providers/main_provider.dart';
-import 'providers/upload_status_provider.dart';
 import 'data/app_database.dart';
 
 final getIt = GetIt.instance;
@@ -17,7 +16,6 @@ void setupLocator() {
   getIt.registerLazySingleton<SettingsService>(() => SettingsService());
   getIt.registerLazySingleton<FilePickerService>(() => FilePickerService());
   getIt.registerLazySingleton<FileService>(() => FileService());
-  getIt.registerLazySingleton<UploadStatusProvider>(() => UploadStatusProvider());
 
   getIt.registerFactory<MainProvider>(() => MainProvider());
 }

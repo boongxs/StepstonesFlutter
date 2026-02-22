@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:xxh3/xxh3.dart';
 import 'logger_service.dart';
 import 'dart:async';
-import 'dart:isolate';
 
 class CopyResponse {
   final CopyResult status;
@@ -19,42 +19,24 @@ enum CopyResult { success, duplicate, failure }
 class CopyRequest {
   final String sourcePath;
   final String destFolder;
-  final SendPort sendPort;
 
-  CopyRequest(this.sourcePath, this.destFolder, this.sendPort);
+  CopyRequest(this.sourcePath, this.destFolder);
 }
 
-class IsolateResponse {
-  final double? progress;
-  final CopyResponse? result;
-
-  IsolateResponse.progress(this.progress) : result = null;
-  IsolateResponse.result(this.result) : progress = null;
-}
-
-Future<void> _isolateEntry(CopyRequest request) async {
+Future<CopyResponse> _copyAndHashInBackground(CopyRequest request) async {
   final sourceFile = File(request.sourcePath);
   final tempFileName = "${DateTime.now().millisecondsSinceEpoch}_${p.basename(request.sourcePath)}.tmp";
   final tempFilePath = p.join(request.destFolder, tempFileName);
 
   try {
-    final totalBytes = await sourceFile.length();
     final hasher = XXH3State.create();
     final inputStream = sourceFile.openRead();
     final outputSink = File(tempFilePath).openWrite();
 
-    int bytesCopied = 0;
-
     await inputStream.listen(
       (List<int> chunk) {
         hasher.update(Uint8List.fromList(chunk));
-
-        // write to disk
         outputSink.add(chunk);
-
-        // send progress back to main thread
-        bytesCopied += chunk.length;
-        request.sendPort.send(IsolateResponse.progress(bytesCopied / totalBytes));
       },
       cancelOnError: true,
     ).asFuture();
@@ -62,44 +44,32 @@ Future<void> _isolateEntry(CopyRequest request) async {
     await outputSink.flush();
     await outputSink.close();
 
-    // finalize hash
     final hashInt = hasher.digest();
     final hashString = hashInt.toRadixString(16).toUpperCase();
 
-    // determine final path
     final extension = p.extension(request.sourcePath);
     final finalFileName = "$hashString$extension";
     final finalDestPath = p.join(request.destFolder, finalFileName);
 
-    // check for duplicates
     final finalFile = File(finalDestPath);
     if (await finalFile.exists()) {
-      // clean up the temp file if duplicate
-      await File(tempFilePath).delete();
-
-      request.sendPort.send(IsolateResponse.result(
-        CopyResponse(
-          CopyResult.duplicate,
-          hash: hashString,
-          finalFileName: finalFileName,
-        )
-      ));
-
-      return;
+      await File(tempFilePath).delete(); // clean up temp
+      return CopyResponse(
+        CopyResult.duplicate,
+        hash: hashString,
+        finalFileName: finalFileName,
+      );
     }
 
     // rename temp file to final name
     await File(tempFilePath).rename(finalDestPath);
 
-    // send final success
-    final response = CopyResponse(
-      CopyResult.success, 
-      hash: hashString, 
+    return CopyResponse(
+      CopyResult.success,
+      hash: hashString,
       finalFileName: finalFileName
     );
-    request.sendPort.send(IsolateResponse.result(response));    
   } catch (e) {
-    // attempt cleanup on failure
     try {
       final tempFile = File(tempFilePath);
       if (await tempFile.exists()) {
@@ -107,45 +77,17 @@ Future<void> _isolateEntry(CopyRequest request) async {
       }
     } catch (_) {}
 
-    // send failure
-    request.sendPort.send(IsolateResponse.result(CopyResponse(CopyResult.failure)));
+    return CopyResponse(CopyResult.failure);
   }
 }
 
 class FileService {
-  // copies file with a callback for file's progress
-  Future<CopyResponse> copyFileWithProgress(
-    String sourcePath,
-    String destFolder,
-    Function(double) onProgress,
-  ) async {
-    // create port to receive messages from the isolate
-    final receivePort = ReceivePort();
-
+  Future<CopyResponse> copyFile(String sourcePath, String destFolder) async {
     try {
-      // spawn isolate
-      await Isolate.spawn(
-        _isolateEntry,
-        CopyRequest(sourcePath, destFolder, receivePort.sendPort)
+      final result = await compute(
+        _copyAndHashInBackground,
+        CopyRequest(sourcePath, destFolder)
       );
-
-      // listen for the result
-      final completer = Completer<CopyResponse>();
-
-      receivePort.listen((message) {
-        if (message is IsolateResponse) {
-          if (message.progress != null) {
-            // update UI with progress
-            onProgress(message.progress!);
-          } else if (message.result != null) {
-            // operation finished
-            completer.complete(message.result);
-          }
-        }
-      });
-
-      // wait for the isolate to finish
-      final result = await completer.future;
 
       if (result.status == CopyResult.success) {
         LogService.i("Uploaded: ${result.finalFileName}");
@@ -157,8 +99,6 @@ class FileService {
     } catch (e) {
       LogService.e("Error copying file from $sourcePath", e);
       return CopyResponse(CopyResult.failure);
-    } finally {
-      receivePort.close();
     }
   }
 
@@ -172,33 +112,24 @@ class FileService {
 
       return dir.listSync().whereType<File>().length;
     } catch (e) {
-      LogService.e('Error counting files in folder: $folderPath', e);
+      LogService.e("Error counting files in folder: $folderPath", e);
       return 0;
     }
   }
 
   // hashes an existing file in the library and renames it to {hash}.ext
-  Future<CopyResponse> importFileWithProgress(
-    String filePath,
-    Function(double) onProgress,
-  ) async {
+  Future<CopyResponse> importFile(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) return CopyResponse(CopyResult.failure);
       
-      final totalBytes = await file.length();
-      
       // 1. hash the file
       final hasher = XXH3State.create();
       final inputStream = file.openRead();
-      
-      int bytesRead = 0;
-      
+          
       await inputStream.listen(
         (List<int> chunk) {
           hasher.update(Uint8List.fromList(chunk));
-          bytesRead += chunk.length;
-          onProgress(bytesRead / totalBytes);
         },
         cancelOnError: true,
       ).asFuture();

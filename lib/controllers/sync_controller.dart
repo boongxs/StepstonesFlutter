@@ -11,7 +11,6 @@ import '../services/file_picker_service.dart';
 import '../utils/media_helper.dart';
 import '../utils/metadata_helper.dart';
 import '../utils/thumbnail_helper.dart';
-import '../providers/upload_status_provider.dart';
 import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
@@ -62,8 +61,7 @@ class SyncController extends ChangeNotifier {
     // process regular media files
     _uploadQueue.addAll(files);
 
-    final uploadProgress = getIt<UploadStatusProvider>();
-    uploadProgress.startUpload(files.length);
+    _jobStatus.startJob("Uploading files...");
     notifyListeners();
 
     if (!_isUploading) {
@@ -76,10 +74,7 @@ class SyncController extends ChangeNotifier {
     final folderPath = _session.mediaFolderPath;
     if (folderPath == null) return;
 
-    // set up sync status card
     _jobStatus.startJob("Synchronizing media folder");
-
-    // show sync status card
     notifyListeners();
 
     await _gallery.fullRefresh(resetScroll: false);
@@ -116,7 +111,6 @@ class SyncController extends ChangeNotifier {
 
   Future<void> _processUploadQueue({bool silent = false}) async {
     _isUploading = true;
-    final uploadProgress = getIt<UploadStatusProvider>();
     final folderPath = _session.mediaFolderPath!;
 
     while (_uploadQueue.isNotEmpty) {
@@ -124,33 +118,21 @@ class SyncController extends ChangeNotifier {
       final fileName = p.basename(sourcePath);
       final isImport = p.isWithin(folderPath, sourcePath);
 
-      // update current filename for the sync card
-      if (silent) {
-        _jobStatus.updateProgress(fileName);
-      } else {
-        uploadProgress.updateCurrentFile(fileName, 0);
-      }
+      // update status card subtitle
+      _jobStatus.updateProgress(fileName);
 
       // copy / import
       CopyResponse response;
       if (isImport) {
-        response = await _fileService.importFileWithProgress(
-          sourcePath,
-          (p) => !silent ? uploadProgress.updateProgress(p) : null
-        );
+        response = await _fileService.importFile(sourcePath);
       } else {
-        response = await _fileService.copyFileWithProgress(
-          sourcePath, 
-          folderPath, 
-          (p) => !silent ? uploadProgress.updateProgress(p) : null
-        );
+        response = await _fileService.copyFile(sourcePath, folderPath);
       }
 
       // DB insert / thumbnail generation
       if (response.status == CopyResult.success) {
         try {
           final finalPath = p.join(folderPath, response.finalFileName!);
-
           final type = await MediaHelper.inferFileType(finalPath);
           final metadata = await MetadataHelper.extractMetadata(finalPath, type);
 
@@ -175,30 +157,31 @@ class SyncController extends ChangeNotifier {
           );
 
           await _database.insertMediaItem(entry);
-          if (!silent) uploadProgress.completeFile();
         } catch (e) {
           final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
           if (isDuplicate) {
-            if (!silent) uploadProgress.markDuplicate();
+            LogService.i("Duplicate database entry skipped: $fileName");
           } else {
-            if (!silent) uploadProgress.markFailed();
+            LogService.i("Duplicate database entry skipped: $fileName");
           }
         }
       } else if (response.status == CopyResult.duplicate) {
-        if (!silent) uploadProgress.markDuplicate();
+        LogService.i("Duplicate file on disk skipped: $fileName");
       } else {
-        if (!silent) uploadProgress.markFailed();
+        LogService.w("Failed to copy file: $fileName");
       }
     }
 
     if (silent) {
       _jobStatus.updateProgress("");
+    } else {
+      // if manual upload (not orphan sync), finish job
+      _jobStatus.finishJob("Upload complete");
     }
 
     // queue empty -> refresh
     await _gallery.fullRefresh(resetScroll: false);
 
-    if (!silent) uploadProgress.finishUpload();
     _isUploading = false;
     LogService.i("Queue empty. Sync complete.");
     notifyListeners();
@@ -401,9 +384,12 @@ class SyncController extends ChangeNotifier {
       if (await File(sourceMedia).exists()) {
         if (!await File(destMedia).exists()) {
           await compute(_copyFileInBackground, [sourceMedia, destMedia]);
+        } else {
+          LogService.i("Duplicate on disk, skipping copy: $hashedFileName");
         }
       } else {
         isSuccess = false; // missing in bundle
+        LogService.w("Import warning: file listed in metadata but missing in bundle: $hashedFileName");
       }
 
       // copy thumbnail
@@ -437,7 +423,14 @@ class SyncController extends ChangeNotifier {
           );
 
           await _database.insertMediaItem(companion);
-        } catch (_) {}
+        } catch (e) {
+          final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
+          if (isDuplicate) {
+            LogService.i("Duplicate in database, skipping insert: $hashedFileName");
+          } else {
+            LogService.e("Failed to insert media item into database: $hashedFileName", e);
+          }
+        }
       }
     }
 
