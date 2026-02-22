@@ -15,6 +15,8 @@ import '../providers/upload_status_provider.dart';
 import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
+import '../services/bundle_import_service.dart';
+import 'package:flutter/foundation.dart';
 
 class SyncController extends ChangeNotifier {
   final AppDatabase _database;
@@ -25,7 +27,6 @@ class SyncController extends ChangeNotifier {
   final FileService _fileService = getIt<FileService>();
   final FilePickerService _filePickerService = getIt<FilePickerService>();
 
-  // --- internal state ---
   final List<String> _uploadQueue = [];
   bool _isUploading = false;
 
@@ -46,6 +47,19 @@ class SyncController extends ChangeNotifier {
     final files = await _filePickerService.pickMediaFiles();
     if (files == null || files.isEmpty) return;
 
+    // separate stepstones bundles from regular media files
+    final bundleFiles = files.where((f) => p.extension(f).toLowerCase() == ".stepstone").toList();
+    final mediaFiles = files.where((f) => p.extension(f).toLowerCase() != ".stepstone").toList();
+
+    // process bundles first, sequentially
+    for (final bundlePath in bundleFiles) {
+      await _handleBundleImport(bundlePath);
+    }
+
+    // if there are no regular media files, end
+    if (mediaFiles.isEmpty) return;
+
+    // process regular media files
     _uploadQueue.addAll(files);
 
     final uploadProgress = getIt<UploadStatusProvider>();
@@ -327,5 +341,122 @@ class SyncController extends ChangeNotifier {
       LogService.i("Restored $restoredCount missing thumbnails.");
       await _gallery.refreshLibrary();
     }
+  }
+
+  Future<void> _handleBundleImport(String bundlePath) async {
+    final destFolder = _session.mediaFolderPath;
+    if (destFolder == null) return;
+
+    // unpacking
+    _jobStatus.startJob("Unpacking bundle...");
+    notifyListeners();
+
+    final unpackedPath = await BundleImportService.unpackBundle(bundlePath);
+    if (unpackedPath == null) {
+      _jobStatus.finishJob("Unpack failed", isError: true);
+      notifyListeners();
+      return;
+    }
+
+    final metadata = await BundleImportService.readMetadata(unpackedPath);
+    if (metadata == null) {
+      _jobStatus.finishJob("Invalid bundle metadata", isError: true);
+      notifyListeners();
+      await BundleImportService.cleanup(unpackedPath);
+      return;
+    }
+
+    _jobStatus.finishJob("Unpacking complete");
+    notifyListeners();
+
+    // importing
+    final itemsToImport = metadata.entries.toList();
+    if (itemsToImport.isEmpty) {
+      _jobStatus.finishJob("Bundle is empty");
+      await BundleImportService.cleanup(unpackedPath);
+      return;
+    }
+
+    _jobStatus.startJob("Processing bundle...");
+    notifyListeners();
+
+    final mediaDir = p.join(unpackedPath, "media");
+    final thumbsDir = p.join(unpackedPath, "thumbs");
+
+    final supportPath = _session.appSupportPath;
+    final systemThumbsDir = supportPath != null ? p.join(supportPath, "thumbnails") : null;
+
+    for (final entry in itemsToImport) {
+      final hashedFileName = entry.key;
+      final data = entry.value as Map<String, dynamic>;
+
+      _jobStatus.updateProgress(hashedFileName);
+
+      final sourceMedia = p.join(mediaDir, hashedFileName);
+      final destMedia = p.join(destFolder, hashedFileName);
+
+      bool isSuccess = true;
+
+      // copy media file
+      if (await File(sourceMedia).exists()) {
+        if (!await File(destMedia).exists()) {
+          await compute(_copyFileInBackground, [sourceMedia, destMedia]);
+        }
+      } else {
+        isSuccess = false; // missing in bundle
+      }
+
+      // copy thumbnail
+      final thumbPath = data["thumbnailPath"] as String?;
+      if (thumbPath != null && systemThumbsDir != null) {
+        final sourceThumb = p.join(thumbsDir, thumbPath);
+        final destThumb = p.join(systemThumbsDir, thumbPath);
+
+        if (await File(sourceThumb).exists() && !await File(destThumb).exists()) {
+          if (!await Directory(systemThumbsDir).exists()) {
+            await Directory(systemThumbsDir).create(recursive: true);
+          }
+          await compute(_copyFileInBackground, [sourceThumb, destThumb]);
+        }
+      }
+
+      // database insert
+      if (isSuccess) {
+        try {
+          final companion = MediaItemsCompanion(
+            fileHash: drift.Value(hashedFileName.split(".").first),
+            hashedFileName: drift.Value(hashedFileName),
+            mediaFolderPath: drift.Value(destFolder),
+            originalFileName: drift.Value(hashedFileName),
+            fileType: drift.Value(data["fileType"] ?? "unknown"),
+            width: drift.Value(data["width"]),
+            height: drift.Value(data["height"]),
+            duration: drift.Value(data["duration"]),
+            tags: drift.Value(data["tags"]),
+            thumbnailPath: drift.Value(thumbPath),
+          );
+
+          await _database.insertMediaItem(companion);
+        } catch (_) {}
+      }
+    }
+
+    // cleanup & refresh
+    await BundleImportService.cleanup(unpackedPath);
+    await _gallery.fullRefresh();
+
+    _jobStatus.finishJob("Bundle import complete");
+    LogService.i("Bundle import complete.");
+    notifyListeners();
+  }
+}
+
+Future<void> _copyFileInBackground(List<String> paths) async {
+  final sourcePath = paths[0];
+  final destPath = paths[1];
+
+  final source = File(sourcePath);
+  if (await source.exists()) {
+    await source.copy(destPath);
   }
 }
