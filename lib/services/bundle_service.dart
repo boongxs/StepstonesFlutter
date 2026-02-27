@@ -174,7 +174,7 @@ class BundleService {
       } else {
         input.sendPort.send({'type': 'error', 'message': "Zip file creation failed silently."});
       }
-    } catch (e, stack) {
+    } catch (e) {
       input.sendPort.send({'type': 'error', 'message': e.toString()});
       try {
         if (bundleDir.existsSync()) {

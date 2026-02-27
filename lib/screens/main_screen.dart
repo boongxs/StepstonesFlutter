@@ -146,9 +146,13 @@ class MainScreen extends StatelessWidget {
 
                         // --- MAIN CONTENT AREA ---
                         Expanded(
-                          child: vm.isShowingLogs
-                              ? const LogsViewer()
-                              : const MediaGrid(),
+                          child: IndexedStack(
+                            index: vm.isShowingLogs ? 1 : 0,
+                            children: const [
+                              MediaGrid(),
+                              LogsViewer(),
+                            ],
+                          ),
                         ),
                       ],
                     ),
