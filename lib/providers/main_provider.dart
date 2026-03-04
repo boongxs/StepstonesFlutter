@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stepstones_flt/services/logger_service.dart';
 import '../locator.dart';
 import '../data/app_database.dart';
 import '../controllers/session_controller.dart';
@@ -6,6 +7,7 @@ import '../controllers/gallery_controller.dart';
 import '../controllers/sync_controller.dart';
 import '../controllers/selection_controller.dart';
 import 'status_card_provider.dart';
+import 'dart:async';
 
 class MainProvider extends ChangeNotifier {
   late final SessionController session;
@@ -19,8 +21,30 @@ class MainProvider extends ChangeNotifier {
   bool _isShowingLogs = false;
   bool get isShowingLogs => _isShowingLogs;
 
+  int _unseenWarningCount = 0;
+  int _unseenErrorCount = 0;
+  StreamSubscription? _logSubscription;
+
+  int get unseenLogCount => _unseenWarningCount + _unseenErrorCount;
+  bool get hasUnseenLogs => unseenLogCount > 0;
+
+  // if there is an error, badge becomes red. otherwise orange.
+  Color get logBadgeColor => _unseenErrorCount > 0 ? Colors.red : Colors.orange;
+
+  int _lastSeenLogCount = 0;
+  int get lastSeenLogCount => _lastSeenLogCount;
+
   void toggleLogsView() {
     _isShowingLogs = !_isShowingLogs;
+
+    // when switching to logs view, clear the badge
+    if (isShowingLogs) {
+      _unseenWarningCount = 0;
+      _unseenErrorCount = 0;
+    } else {
+      _lastSeenLogCount = LogService.liveLogs.value.length;
+    }
+
     notifyListeners();
   }
 
@@ -50,6 +74,19 @@ class MainProvider extends ChangeNotifier {
     status.addListener(notifyListeners);
     sync.addListener(notifyListeners);
     selection.addListener(notifyListeners);
+
+    // listen to log service stream when provider is created
+    _logSubscription = LogService.alertStream.listen((severity) {
+      // do not increment if user is looking at logs view
+      if (isShowingLogs) return;
+
+      if (severity == LogSeverity.error) {
+        _unseenErrorCount++;
+      } else if (severity == LogSeverity.warning) {
+        _unseenWarningCount++;
+      }
+      notifyListeners();
+    });
   }
 
   // load previously saved media folder path
@@ -71,6 +108,8 @@ class MainProvider extends ChangeNotifier {
     status.dispose();
     sync.dispose();
     selection.dispose();
+
+    _logSubscription?.cancel;
 
     super.dispose();
   }

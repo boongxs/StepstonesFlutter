@@ -181,6 +181,9 @@ class GalleryController extends ChangeNotifier {
       // only invalidate cache so UI updates the tag text, no need for full count refresh
       _invalidateCache();
       notifyListeners();
+
+      LogService.i("Media item's tags have been updated successfully.");
+
       return true;
     } catch (e) {
       LogService.e("Failed to update tags: $e");

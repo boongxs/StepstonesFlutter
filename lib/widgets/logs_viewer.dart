@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../services/logger_service.dart';
 
 class LogsViewer extends StatefulWidget {
-  const LogsViewer({super.key});
+  final int lastSeenLogCount;
+
+  const LogsViewer({
+    super.key,
+    required this.lastSeenLogCount,
+  });
 
   @override
   State<LogsViewer> createState() => _LogsViewerState();
@@ -27,6 +32,37 @@ class _LogsViewerState extends State<LogsViewer> {
     super.dispose();
   }
 
+  Widget _buildSeparator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        children: [
+          Expanded(child: Divider(
+            color: Colors.redAccent,
+            thickness: 1,
+          )),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Text(
+              "New Logs",
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Divider(
+              color: Colors.redAccent,
+              thickness: 1
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -43,16 +79,36 @@ class _LogsViewerState extends State<LogsViewer> {
           // auto-scroll after new items
           WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
+          // determine if we need to show separator between old and new logs
+          final bool showSeparator = widget.lastSeenLogCount > 0 && widget.lastSeenLogCount < logs.length;
+          final int totalItems = showSeparator ? logs.length + 1 : logs.length;
+
           return ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
-            itemCount: logs.length,
+            itemCount: totalItems,
             itemBuilder: (context, index) {
-              final log = logs[index];
+              // draw separator at "last seen" boundary
+              if (showSeparator && index == widget.lastSeenLogCount) {
+                return _buildSeparator();
+              }
+
+              // adjust index mapping because separator took up a slot in ListView
+              int actualLogIndex = index;
+              if (showSeparator && index > widget.lastSeenLogCount) {
+                actualLogIndex = index - 1;
+              }
+
+              final log = logs[actualLogIndex];
               Color textColor = Colors.white70;
-              if (log.contains("[ERROR]")) textColor = Colors.redAccent;
-              else if (log.contains("[WARN]")) textColor = Colors.orangeAccent;
-              else if (log.contains("[DEBUG]")) textColor = Colors.blueGrey;
+
+              if (log.contains("[ERROR]")) {
+                textColor = Colors.redAccent;
+              } else if (log.contains("[WARN]")) {
+                textColor = Colors.orangeAccent;
+              } else if (log.contains("[DEBUG]")) {
+                textColor = Colors.blueGrey;
+              }
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: SelectableText(

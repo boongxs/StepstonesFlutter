@@ -1,11 +1,22 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
+enum LogSeverity { 
+  info, 
+  warning, 
+  error, 
+}
+
 class LogService {
   static File? _logFile;
   static final ValueNotifier<List<String>> liveLogs = ValueNotifier([]);
+
+  static final StreamController<LogSeverity> _alertStreamController = StreamController<LogSeverity>.broadcast();
+  static Stream<LogSeverity> get alertStream => _alertStreamController.stream; // expose stream so main provider can listen to it 
+
   static const int _maxLogLines = 200;
 
   static Future<void> initialize() async {
@@ -23,8 +34,14 @@ class LogService {
 
   static void d(String message) => _writeLine('[DEBUG] $message');
   static void i(String message) => _writeLine('[INFO] $message');
-  static void w(String message) => _writeLine('[WARN] $message');
-  static void e(String message, [Object? error]) => _writeLine('[ERROR] $message ${error ?? ""}');
+  static void w(String message, [dynamic error, StackTrace? stackTrace]) {
+    _writeLine("[WARN] $message");
+    _alertStreamController.add(LogSeverity.warning);
+  }
+  static void e(String message, [dynamic error, StackTrace? stackTrace]) {
+    _writeLine("[ERROR] $message ${error ?? ""}");
+    _alertStreamController.add(LogSeverity.error);
+  }
 
   static Future<void> _writeLine(String message) async {
     final timestamp = DateTime.now().toIso8601String();

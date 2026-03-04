@@ -128,16 +128,28 @@ class MainScreen extends StatelessWidget {
                                 const SizedBox(width: 10),
 
                                 // 5. Logs View Toggle
-                                ActionButton(
-                                  icon: vm.isShowingLogs
-                                      ? Icons.grid_view_rounded
-                                      : Icons.terminal_rounded,
-                                  tooltip: vm.isShowingLogs
-                                      ? "Show Media Grid"
-                                      : "Show Application Logs",
-                                  onPressed: () => context
-                                      .read<MainProvider>()
-                                      .toggleLogsView(),
+                                Badge(
+                                  isLabelVisible: vm.hasUnseenLogs,
+                                  backgroundColor: vm.logBadgeColor,
+                                  label: Text(
+                                    vm.unseenLogCount > 9 ? "9+" : vm.unseenLogCount.toString(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  child: ActionButton(
+                                    icon: vm.isShowingLogs
+                                        ? Icons.grid_view_rounded
+                                        : Icons.terminal_rounded,
+                                    tooltip: vm.isShowingLogs
+                                        ? "Show Media Grid"
+                                        : "Show Application Logs",
+                                    onPressed: () => context
+                                        .read<MainProvider>()
+                                        .toggleLogsView(),
+                                  ),
                                 ),
                               ],
                             );
@@ -213,9 +225,9 @@ class MainScreen extends StatelessWidget {
                         Expanded(
                           child: IndexedStack(
                             index: vm.isShowingLogs ? 1 : 0,
-                            children: const [
+                            children: [
                               MediaGrid(),
-                              LogsViewer(),
+                              LogsViewer(lastSeenLogCount: vm.lastSeenLogCount),
                             ],
                           ),
                         ),
