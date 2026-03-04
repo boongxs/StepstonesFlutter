@@ -9,6 +9,7 @@ import '../widgets/media_grid.dart';
 import '../widgets/selection_mode_card.dart';
 import '../widgets/logs_viewer.dart';
 import '../widgets/storage_status_bar.dart';
+import 'package:path/path.dart' as p;
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -145,11 +146,65 @@ class MainScreen extends StatelessWidget {
 
                         const SizedBox(height: 20),
 
-                        // --- STORAGE STATUS BAR ---
+                        // --- FOLDER INFO & STORAGE STATUS ROW ---
                         // only show the bar if looking at media grid view
                         if (!vm.isShowingLogs)
-                          StorageStatusBar(
-                            freeSpaceMB: vm.session.freeSpaceMB
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Folder name & Item count
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      // Folder icon
+                                      Icon(
+                                        Icons.folder_open_rounded,
+                                        size: 18,
+                                      ),
+                                      
+                                      const SizedBox(width: 8),
+
+                                      // Folder name
+                                      Flexible(
+                                        child: Text(
+                                          vm.session.mediaFolderPath != null
+                                            ? p.basename(vm.session.mediaFolderPath!)
+                                            : "No Folder Selected",
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+
+                                      // Divider Dot
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                        child: Text(
+                                          "•",
+                                          style: TextStyle(color: Colors.grey[600]),
+                                        ),
+                                      ),
+
+                                      // Item count
+                                      Text(
+                                        "Currently showing ${vm.gallery.totalItemCount} media items",
+                                        style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(width: 16),
+
+                                // Disk storage status indicator
+                                StorageStatusBar(
+                                  freeSpaceMB: vm.session.freeSpaceMB,
+                                ),
+                              ],
+                            ),
                           ),
 
                         const SizedBox(height: 20),
