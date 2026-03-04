@@ -55,6 +55,7 @@ class MainProvider extends ChangeNotifier {
   // load previously saved media folder path
   Future<void> initialize() async {
     await session.initialize();
+    session.updateDiskSpace();
   }
 
   @override

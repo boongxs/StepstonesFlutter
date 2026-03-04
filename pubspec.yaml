@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   archive: ^4.0.9
+  disk_space_2: ^1.0.12
   drift: ^2.30.0
   file_picker: ^10.3.7
   flutter:

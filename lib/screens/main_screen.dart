@@ -8,6 +8,7 @@ import '../widgets/sync_status_card.dart';
 import '../widgets/media_grid.dart';
 import '../widgets/selection_mode_card.dart';
 import '../widgets/logs_viewer.dart';
+import '../widgets/storage_status_bar.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -141,6 +142,15 @@ class MainScreen extends StatelessWidget {
                             );
                           },
                         ),
+
+                        const SizedBox(height: 20),
+
+                        // --- STORAGE STATUS BAR ---
+                        // only show the bar if looking at media grid view
+                        if (!vm.isShowingLogs)
+                          StorageStatusBar(
+                            freeSpaceMB: vm.session.freeSpaceMB
+                          ),
 
                         const SizedBox(height: 20),
 

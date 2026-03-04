@@ -3,6 +3,8 @@ import 'package:path_provider/path_provider.dart';
 import '../services/folder_picker_service.dart';
 import '../services/settings_service.dart';
 import '../locator.dart';
+import 'package:disk_space_2/disk_space_2.dart';
+import '../services/logger_service.dart';
 
 class SessionController extends ChangeNotifier {
   final SettingsService _settingsService = getIt<SettingsService>();
@@ -13,6 +15,10 @@ class SessionController extends ChangeNotifier {
 
   String? _appSupportPath;
   String? get appSupportPath => _appSupportPath;
+
+  double _freeSpaceMB = 0.0;
+
+  double get freeSpaceMB => _freeSpaceMB;
 
   // load previously saved media folder path
   Future<void> initialize() async {
@@ -32,7 +38,26 @@ class SessionController extends ChangeNotifier {
     if (selectedPath != null) {
       _mediaFolderPath = selectedPath;
       await _settingsService.saveMediaFolderPath(selectedPath);
+
+      updateDiskSpace();
       notifyListeners();
+    }
+  }
+
+    // update storage status bar
+  Future<void> updateDiskSpace() async {
+    final folderPath = mediaFolderPath;
+    if (folderPath == null) return;
+
+    try {
+      final free = await DiskSpace.getFreeDiskSpaceForPath(folderPath);
+
+      if (free != null) {
+        _freeSpaceMB = free;
+        notifyListeners();
+      }
+    } catch (e) {
+      LogService.w("Could not read disk space for UI: $e");
     }
   }
 }

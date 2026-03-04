@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 import '../data/app_database.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
@@ -85,74 +83,23 @@ class SelectionController extends ChangeNotifier {
     _isDeleting = true;
     notifyListeners();
 
-    final idsToDelete = _selectedItemIds.toList();
-    await _gallery.performBatchOptimisticDelete(idsToDelete);
-
     try {
+      // get media item data from database
       final itemsToDelete = await _db.getMediaItemsByIds(_selectedItemIds.toList());
-      const int batchSize = 100;
 
-      // on disk deletion batch (100) loop
-      for (var i = 0; i < itemsToDelete.length; i += batchSize) {
-        final end = (i + batchSize < itemsToDelete.length) ? i + batchSize : itemsToDelete.length;
-        final batch = itemsToDelete.sublist(i, end);
+      // perform delete
+      await _gallery.deleteItems(itemsToDelete);
 
-        await Future.wait(batch.map((item) async {
-          // delete media file
-          final sourcePath = item.hashedFileName.startsWith('/')
-            ? item.hashedFileName
-            : p.join(item.mediaFolderPath, item.hashedFileName);
-          
-          final file = File(sourcePath);
-          // try-catch so that one failed delete doesn't stop the whole batch d
-          try {
-            if (await file.exists()) {
-            await file.delete();
-            }
-          } catch (e) {
-            LogService.e("Failed to delete file: $sourcePath", e);
-          }
-
-          // delete thumbnail file
-          if (item.thumbnailPath != null && _session.appSupportPath != null) {
-            final thumbPath = p.join(_session.appSupportPath!, 'thumbnails', item.thumbnailPath);
-            final thumbFile = File(thumbPath);
-
-            try {
-              if (await thumbFile.exists()) {
-              await thumbFile.delete();
-              }
-            } catch (e) {
-              LogService.e("Failed to delete thumbnail file: $thumbPath", e);
-            }
-          }
-        }));
-      }
-
-      final allIds = _selectedItemIds.toList();
-
-      for (var i = 0; i < allIds.length; i += batchSize) {
-        final end = (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
-        final batchIds = allIds.sublist(i, end);
-        await _db.deleteMediaItemsById(batchIds);
-      }
-
-      LogService.i('Batch Delete: Successfully deleted ${_selectedItemIds.length} items.');
-      await _gallery.fullRefresh(resetScroll: false); // refresh grid
-      _gallery.clearAnimatingItems(idsToDelete);
-
+      // cleanup selection state
       _selectedItemIds.clear();
       _areAllSelected = false;
 
       // only close the selection mode card if the media folder is empty
       if (_gallery.totalItemCount == 0) {
         if (_isSelectionMode) toggleSelectionMode();
-      } else {
-        notifyListeners(); // if items remain, keep the selection mode card open but update UI
       }
     } catch (e) {
       LogService.e("Error executing batch delete");
-      _gallery.clearAnimatingItems(idsToDelete);
     } finally {
       _isDeleting = false;
       notifyListeners();

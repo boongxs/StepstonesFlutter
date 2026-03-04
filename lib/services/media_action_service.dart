@@ -109,9 +109,8 @@ class MediaActionService {
       await Future.delayed(const Duration(milliseconds: 250));
     }
 
-    // perform deletion
-    await provider.gallery.performOptimisticDelete(item.id);
-    final success = await provider.gallery.deleteItem(item);
+    // perform delete
+    final success = await provider.gallery.deleteItems([item]);
 
     // show feedback
     _showSnackBarWithMessenger(

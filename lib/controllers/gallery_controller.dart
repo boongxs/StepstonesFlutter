@@ -81,23 +81,6 @@ class GalleryController extends ChangeNotifier {
     }
   }
 
-  // --- animation helpers ---
-  // single item delete 
-  Future<void> performOptimisticDelete(int id) async {
-    _itemsAnimatingOut.add(id);
-    notifyListeners();
-
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
-  // batch delete
-  Future<void> performBatchOptimisticDelete(List<int> ids) async {
-    _itemsAnimatingOut.addAll(ids);
-    notifyListeners();
-
-    await Future.delayed(const Duration(milliseconds: 300));
-  }
-
   // cleanup helper
   void clearAnimatingItems(List<int> ids) {
     _itemsAnimatingOut.removeAll(ids);
@@ -105,54 +88,85 @@ class GalleryController extends ChangeNotifier {
   }
 
   // --- CRUD actions ---
-  Future<bool> deleteItem(MediaItem item) async {
+  Future<bool> deleteItems(List<MediaItem> itemsToDelete) async {
+    if (itemsToDelete.isEmpty) return true;
+
+    // optimistic UI update (start fade out animation)
+    final idsToDelete = itemsToDelete.map((e) => e.id).toList();
+    _itemsAnimatingOut.addAll(idsToDelete);
+    notifyListeners();
+
+    // wait 300ms for fade out animation to complete
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // save scroll position
+    double previousOffset = 0.0;
+    if (scrollController.hasClients) previousOffset = scrollController.offset;
+
     try {
-      // save current scroll position
-      double previousOffset = 0.0;
-      if (scrollController.hasClients) {
-        previousOffset = scrollController.offset;
+      final appDir = await getApplicationSupportDirectory();
+      const int batchSize = 100;
+
+      // delete physical files in batches
+      for (var i = 0; i < itemsToDelete.length; i += batchSize) {
+        final end = (i + batchSize < itemsToDelete.length) ? i + batchSize : itemsToDelete.length;
+        final batch = itemsToDelete.sublist(i, end);
+
+        await Future.wait(batch.map((item) async {
+          // delete main media file
+          final sourcePath = item.hashedFileName.startsWith("/")
+            ? item.hashedFileName
+            : p.join(item.mediaFolderPath, item.hashedFileName);
+          final mediaFile = File(sourcePath);
+      
+          try {
+            if (await mediaFile.exists()) await mediaFile.delete();
+          } catch (e) {
+            LogService.e("Failed to delete media file: $sourcePath", e);
+          }
+
+          // delete thumbnail file
+          if (item.thumbnailPath != null) {
+            final thumbFile = File(p.join(appDir.path, "thumbnails", item.thumbnailPath!));
+            try {
+              if (await thumbFile.exists()) await thumbFile.delete();
+            } catch (e) {
+              LogService.e("Failed to delete thumbnail: ${item.thumbnailPath}", e);
+            }
+          }
+        }));
       }
 
-      // delete the media file from disk (using safe session paths)
-      final sourceFile = File(p.join(item.mediaFolderPath, item.hashedFileName));
-      if (await sourceFile.exists()) {
-        await sourceFile.delete();
-      } else {
-        LogService.w("File not found during deletion: ${sourceFile.path}");
+      // delete database records in batches
+      for (var i = 0; i < idsToDelete.length; i += batchSize) {
+        final end = (i + batchSize < idsToDelete.length) ? i + batchSize : idsToDelete.length;
+        final batchIds = idsToDelete.sublist(i, end);
+        await _database.deleteMediaItemsById(batchIds);
       }
 
-      // delete the thumbnail file
-      if (item.thumbnailPath != null) {
-        final appDir = await getApplicationSupportDirectory();
-        final thumbFile = File(p.join(appDir.path, 'thumbnails', item.thumbnailPath!));
-        if (await thumbFile.exists()) {
-          await thumbFile.delete();
-        }
-      }
-
-      // remove record for deleted media file from database
-      await _database.deleteMediaItem(item.id);
-
-      _itemsAnimatingOut.remove(item.id);
+      // cleanup UI state
+      _itemsAnimatingOut.removeAll(idsToDelete);
       _invalidateCache();
       await refreshLibrary();
+
+      // update disk space badge
+      await _session.updateDiskSpace();
 
       // restore scroll position
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (scrollController.hasClients) {
-          // ensure we don't jump past the new bottom of the list
           final maxExtent = scrollController.position.maxScrollExtent;
           final targetOffset = (previousOffset > maxExtent) ? maxExtent : previousOffset;
-
           scrollController.jumpTo(targetOffset);
         }
       });
 
+      LogService.i("Successfully deleted ${itemsToDelete.length} items.");
+
       return true;
     } catch (e) {
-      LogService.e("Failed to delete item: $e");
-
-      _itemsAnimatingOut.remove(item.id);
+      LogService.e("Critical error during deletion pipeline", e);
+      _itemsAnimatingOut.removeAll(idsToDelete);
       notifyListeners();
 
       return false;

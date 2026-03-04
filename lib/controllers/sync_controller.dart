@@ -16,6 +16,7 @@ import 'session_controller.dart';
 import 'gallery_controller.dart';
 import '../services/bundle_import_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:disk_space_2/disk_space_2.dart';
 
 class SyncController extends ChangeNotifier {
   final AppDatabase _database;
@@ -113,6 +114,27 @@ class SyncController extends ChangeNotifier {
     _isUploading = true;
     final folderPath = _session.mediaFolderPath!;
 
+    // disk space check
+    double totalPayloadBytes = 0;
+    for (String path in _uploadQueue) {
+      final file = File(path);
+      if (await file.exists()) {
+        totalPayloadBytes += await file.length();
+      }
+    }
+
+    final payloadMB = totalPayloadBytes / (1024 * 1024);
+    final hasSpace = await _hasEnoughSpace(payloadMB, folderPath);
+
+    // not enough space
+    if (!hasSpace) {
+      _jobStatus.finishJob("Insufficient disk space", isError: true);
+      _uploadQueue.clear();
+      _isUploading = false;
+      notifyListeners();
+      return;
+    }
+
     while (_uploadQueue.isNotEmpty) {
       final sourcePath = _uploadQueue.removeAt(0);
       final fileName = p.basename(sourcePath);
@@ -181,6 +203,8 @@ class SyncController extends ChangeNotifier {
 
     // queue empty -> refresh
     await _gallery.fullRefresh(resetScroll: false);
+
+    _session.updateDiskSpace();
 
     _isUploading = false;
     LogService.i("Queue empty. Sync complete.");
@@ -330,6 +354,23 @@ class SyncController extends ChangeNotifier {
     final destFolder = _session.mediaFolderPath;
     if (destFolder == null) return;
 
+    // bundle disk space check
+    final bundleFile = File(bundlePath);
+    if (await bundleFile.exists()) {
+      final bundleBytes = await bundleFile.length();
+      final bundleMB = bundleBytes / (1024 * 1024);
+
+      // multiply by 2.2 = unpacked temp folder + final copied files + buffer
+      final requiredMB = bundleMB * 2.2;
+
+      final hasSpace = await _hasEnoughSpace(requiredMB, destFolder);
+      if (!hasSpace) {
+        _jobStatus.finishJob("Insufficient disk space for bundle", isError: true);
+        notifyListeners();
+        return;
+      }
+    }
+
     // unpacking
     _jobStatus.startJob("Unpacking bundle...");
     notifyListeners();
@@ -437,10 +478,31 @@ class SyncController extends ChangeNotifier {
     // cleanup & refresh
     await BundleImportService.cleanup(unpackedPath);
     await _gallery.fullRefresh();
+    _session.updateDiskSpace();
 
     _jobStatus.finishJob("Bundle import complete");
     LogService.i("Bundle import complete.");
     notifyListeners();
+  }
+
+  Future<bool> _hasEnoughSpace(double requiredMB, String targetPath) async {
+    try {
+      final freeSpaceMB = await DiskSpace.getFreeDiskSpaceForPath(targetPath);
+      if (freeSpaceMB == null) return true; // if OS denies access, attempt anyway
+
+      // add 200MB buffer to not completely fill up disk
+      final safeRequiredMB = requiredMB + 200.0;
+
+      if (safeRequiredMB > freeSpaceMB) {
+        LogService.e("Insufficient disk space. Need: ${safeRequiredMB.toStringAsFixed(2)}MB, Free: ${freeSpaceMB.toStringAsFixed(2)}MB");
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      LogService.w("Could not check disk space for $targetPath: $e");
+      return true; // if unsuccessful, attempt anyway
+    }
   }
 }
 
