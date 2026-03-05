@@ -5,6 +5,7 @@ import '../data/app_database.dart';
 import 'clipboard_service.dart';
 import '../providers/main_provider.dart';
 import '../widgets/media_viewer_dialog.dart';
+import '../utils/snackbar_helper.dart';
 
 class MediaActionService {
   MediaActionService._();
@@ -17,8 +18,7 @@ class MediaActionService {
 
     // UI feedback
     if (context.mounted) {
-      _showSnackBar(
-        context,
+      context.showStepstonesSnackBar(
         success ? "Media item copied successfully" : "Failed to copy media item",
         isError: !success,
       );
@@ -44,8 +44,7 @@ class MediaActionService {
 
     // ui feedback
     if (context.mounted) {
-      _showSnackBar(
-        context,
+      context.showStepstonesSnackBar(
         success ? "Tags updated successfully" : "Failed to update tags",
         isError: !success,
       );
@@ -61,7 +60,11 @@ class MediaActionService {
     const allowedTypes = ['image', 'gif', 'video', 'audio'];
 
     if (!allowedTypes.contains(item.fileType)) {
-      _showSnackBar(context, "Viewer for ${item.fileType} not implemented.", isError: true);
+      context.showStepstonesSnackBar(
+        "Viewer for ${item.fileType} not implemented.",
+        isError: true,
+      );
+      
       return;
     }
 
@@ -113,73 +116,11 @@ class MediaActionService {
     final success = await provider.gallery.deleteItems([item]);
 
     // show feedback
-    _showSnackBarWithMessenger(
-      messenger,
+    messenger.showStepstonesSnackBar(
       success ? "Successfully deleted media item" : "Failed to delete media item",
       isError: !success,
     );
 
     return success;
-  }
-
-  // helper to show notifications when context might be unmounted
-  static void _showSnackBarWithMessenger(ScaffoldMessengerState messenger, String message, {bool isError = false}) {
-    messenger.clearSnackBars();
-
-    final iconColor = isError ? Colors.redAccent : Colors.greenAccent;
-    final iconData = isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded;
-
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(iconData, color: iconColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF303030),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        width: 350,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
-
-  // helper to show notifications
-  static void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
-    // clear any existing notifications
-    ScaffoldMessenger.of(context).clearSnackBars();
-
-    final iconColor = isError ? Colors.redAccent : Colors.greenAccent;
-    final iconData = isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(iconData, color: iconColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF303030),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        width: 350,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
   }
 }

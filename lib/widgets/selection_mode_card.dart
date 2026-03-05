@@ -6,6 +6,7 @@ import '../providers/main_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/bundle_service.dart';
 import '../services/logger_service.dart';
+import '../utils/snackbar_helper.dart';
 
 class SelectionModeCard extends StatelessWidget {
   const SelectionModeCard({super.key});
@@ -107,7 +108,10 @@ class SelectionModeCard extends StatelessWidget {
                 if (tempZipPath == null) {
                   provider.status.finishJob("Packing failed", isError: true);
                   if (context.mounted) {
-                    _showSnackBar(context, "Failed to create bundle", isError: true);
+                    context.showStepstonesSnackBar(
+                      "Failed to create bundle",
+                      isError: true,
+                    );
                   }
 
                   return;
@@ -137,7 +141,9 @@ class SelectionModeCard extends StatelessWidget {
                     provider.status.finishJob("Bundle saved");
 
                     if (context.mounted) {
-                      _showSnackBar(context, "Bundle saved successfully");
+                      context.showStepstonesSnackBar(
+                        "Bundle saved successfully",
+                      );
 
                       // exit selection mode on success
                       provider.selection.toggleSelectionMode();
@@ -148,7 +154,10 @@ class SelectionModeCard extends StatelessWidget {
                     provider.status.finishJob("Save failed", isError: true);
 
                     if (context.mounted) {
-                      _showSnackBar(context, "Error saving file: $e", isError: true);
+                      context.showStepstonesSnackBar(
+                        "Error saving file: $e",
+                        isError: true,
+                      );
                     }
                   }
                 } else {
@@ -251,36 +260,6 @@ class SelectionModeCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  // helper method for snackbars
-  void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-
-    final iconColor = isError ? Colors.redAccent : Colors.greenAccent;
-    final iconData = isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(iconData, color: iconColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF303030),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        width: 350,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
