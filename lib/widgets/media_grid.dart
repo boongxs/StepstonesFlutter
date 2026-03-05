@@ -35,17 +35,18 @@ class MediaGrid extends StatelessWidget {
           controller: vm.gallery.scrollController,
           thumbVisibility: true,
           trackVisibility: true,
+          trackColor: const Color(0xFF3a3a3a),
           interactive: true,
-          minThumbLength: 50,
-          thickness: 10,
+          minThumbLength: 70,
+          thickness: 20,
           radius: const Radius.circular(5),
-          thumbColor: Colors.grey.withValues(alpha: 0.6),
+          thumbColor: const Color(0xFF6f6f6f),
           padding: const EdgeInsets.only(right: 5.0),
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
             child: GridView.builder(
               controller: vm.gallery.scrollController,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(30),
               itemCount: vm.gallery.totalItemCount, // item count ensures scrollbar resizes properly
             
               // responsive layout

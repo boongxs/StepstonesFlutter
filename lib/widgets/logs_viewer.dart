@@ -83,44 +83,58 @@ class _LogsViewerState extends State<LogsViewer> {
           final bool showSeparator = widget.lastSeenLogCount > 0 && widget.lastSeenLogCount < logs.length;
           final int totalItems = showSeparator ? logs.length + 1 : logs.length;
 
-          return ListView.builder(
+          return RawScrollbar(
             controller: _scrollController,
-            padding: const EdgeInsets.all(16),
-            itemCount: totalItems,
-            itemBuilder: (context, index) {
-              // draw separator at "last seen" boundary
-              if (showSeparator && index == widget.lastSeenLogCount) {
-                return _buildSeparator();
-              }
-
-              // adjust index mapping because separator took up a slot in ListView
-              int actualLogIndex = index;
-              if (showSeparator && index > widget.lastSeenLogCount) {
-                actualLogIndex = index - 1;
-              }
-
-              final log = logs[actualLogIndex];
-              Color textColor = Colors.white70;
-
-              if (log.contains("[ERROR]")) {
-                textColor = Colors.redAccent;
-              } else if (log.contains("[WARN]")) {
-                textColor = Colors.orangeAccent;
-              } else if (log.contains("[DEBUG]")) {
-                textColor = Colors.blueGrey;
-              }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4.0),
-                child: SelectableText(
-                  log,
-                  style: TextStyle(
-                    color: textColor,
-                    fontFamily: "monospace",
-                    fontSize: 13,
-                  ),
-                ),
-              );
-            },
+            thumbVisibility: true,
+            trackVisibility: true,
+            trackColor: const Color(0xFF3a3a3a),
+            interactive: true,
+            minThumbLength: 70,
+            thickness: 20,
+            radius: const Radius.circular(5),
+            thumbColor: const Color(0xFF6f6f6f),
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: totalItems,
+                itemBuilder: (context, index) {
+                  // draw separator at "last seen" boundary
+                  if (showSeparator && index == widget.lastSeenLogCount) {
+                    return _buildSeparator();
+                  }
+              
+                  // adjust index mapping because separator took up a slot in ListView
+                  int actualLogIndex = index;
+                  if (showSeparator && index > widget.lastSeenLogCount) {
+                    actualLogIndex = index - 1;
+                  }
+              
+                  final log = logs[actualLogIndex];
+                  Color textColor = Colors.white70;
+              
+                  if (log.contains("[ERROR]")) {
+                    textColor = Colors.redAccent;
+                  } else if (log.contains("[WARN]")) {
+                    textColor = Colors.orangeAccent;
+                  } else if (log.contains("[DEBUG]")) {
+                    textColor = Colors.blueGrey;
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: SelectableText(
+                      log,
+                      style: TextStyle(
+                        color: textColor,
+                        fontFamily: "monospace",
+                        fontSize: 13,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           );
         },
       ),
