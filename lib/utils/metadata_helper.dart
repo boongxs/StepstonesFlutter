@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:image_size_getter/image_size_getter.dart' as isg;
 import 'package:image_size_getter/file_input.dart';
 import '../services/logger_service.dart';
-import '../services/environment_service.dart';
 
 class MediaMetadata {
   final int width;
@@ -59,10 +58,8 @@ class MetadataHelper {
   // video or audio (slow)
   static Future<MediaMetadata> _extractFfprobeMetadata(String path) async {
     try {
-      final ffprobePath = EnvironmentService.ffprobePath;
-
       final result = await Process.run(
-        ffprobePath, 
+        "ffprobe", 
         [
           '-v', 'error',
           '-print_format', 'json',

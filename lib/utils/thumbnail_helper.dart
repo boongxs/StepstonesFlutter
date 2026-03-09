@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import '../services/logger_service.dart';
-import '../services/environment_service.dart';
+import '../constants.dart';
 
 class _ThumbnailRequest {
   final String sourcePath;
@@ -68,7 +68,7 @@ class ThumbnailHelper {
   }) async {
     try {
       // prepare storage (AppData/thumbnails)
-      final appDir = EnvironmentService.appSupportPath;
+      final appDir = AppConstants.appSupportPath;
       final thumbDir = Directory(p.join(appDir, "thumbnails"));
       if (!await thumbDir.exists()) {
         await thumbDir.create(recursive: true);
@@ -113,8 +113,6 @@ class ThumbnailHelper {
   // video logic (extract frame -> image logic)
   static Future<bool> _processVideo(String sourcePath, File target, int durationMs) async {
     try {
-      final ffmpegPath = EnvironmentService.ffmpegPath;
-
       // calculate 10% timestamp
       int targetMs = (durationMs * 0.10).toInt();
 
@@ -122,7 +120,7 @@ class ThumbnailHelper {
       final tempFrame = File("${target.path}.tmp.jpg"); // extract frame to a temp file
 
       final result = await Process.run(
-        ffmpegPath,
+        "ffmpeg",
         [
           '-y',
           '-ss', timeString,

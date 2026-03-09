@@ -4,7 +4,7 @@ import '../services/settings_service.dart';
 import '../locator.dart';
 import 'package:disk_space_2/disk_space_2.dart';
 import '../services/logger_service.dart';
-import '../services/environment_service.dart';
+import '../constants.dart';
 
 class SessionController extends ChangeNotifier {
   final SettingsService _settingsService = getIt<SettingsService>();
@@ -22,7 +22,7 @@ class SessionController extends ChangeNotifier {
 
   // load previously saved media folder path
   Future<void> initialize() async {
-    _appSupportPath = EnvironmentService.appSupportPath;
+    _appSupportPath = AppConstants.appSupportPath;
 
     // store media folder path
     _mediaFolderPath = await _settingsService.loadMediaFolderPath();

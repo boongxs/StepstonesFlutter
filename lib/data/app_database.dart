@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
-import '../services/environment_service.dart';
+import '../constants.dart';
 
 part 'app_database.g.dart';
 
@@ -164,7 +164,7 @@ class AppDatabase extends _$AppDatabase {
 // connection helper
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dbFolder = Directory(EnvironmentService.appSupportPath);
+    final dbFolder = Directory(AppConstants.appSupportPath);
 
     // ensure folder exists
     if (!await dbFolder.exists()) {

@@ -4,13 +4,17 @@ import 'services/logger_service.dart';
 import 'screens/main_screen.dart';
 import 'package:media_kit/media_kit.dart';
 import 'services/media_action_service.dart';
-import 'services/environment_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'constants.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // initialize flutter engine
   MediaKit.ensureInitialized(); // initialize media_kit package
 
+  final dir = await getApplicationSupportDirectory();
+  AppConstants.appSupportPath = dir.path;
+
   await LogService.initialize(); // initialize logger
-  await EnvironmentService.initialize(); // eagerly extract binaries
 
   setupLocator(); // register all singletons (services...)
 

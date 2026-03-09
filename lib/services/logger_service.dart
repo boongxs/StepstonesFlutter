@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
-import 'environment_service.dart';
+import '../constants.dart';
 
 enum LogSeverity { 
   info, 
@@ -20,7 +20,7 @@ class LogService {
   static const int _maxLogLines = 200;
 
   static Future<void> initialize() async {
-    final logsDir = Directory(p.join(EnvironmentService.appSupportPath, "logs"));
+    final logsDir = Directory(p.join(AppConstants.appSupportPath, "logs"));
 
     // does logs directory exist check
     if (!await logsDir.exists()) {
