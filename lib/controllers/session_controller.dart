@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import '../services/folder_picker_service.dart';
 import '../services/settings_service.dart';
 import '../locator.dart';
 import 'package:disk_space_2/disk_space_2.dart';
 import '../services/logger_service.dart';
+import '../services/environment_service.dart';
 
 class SessionController extends ChangeNotifier {
   final SettingsService _settingsService = getIt<SettingsService>();
@@ -22,9 +22,7 @@ class SessionController extends ChangeNotifier {
 
   // load previously saved media folder path
   Future<void> initialize() async {
-    // store appdata path
-    final dir = await getApplicationSupportDirectory();
-    _appSupportPath = dir.path;
+    _appSupportPath = EnvironmentService.appSupportPath;
 
     // store media folder path
     _mediaFolderPath = await _settingsService.loadMediaFolderPath();

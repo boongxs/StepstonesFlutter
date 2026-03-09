@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import '../data/app_database.dart';
 import '../services/logger_service.dart';
 import 'session_controller.dart';
-import 'package:path_provider/path_provider.dart';
+import '../services/environment_service.dart';
 
 class GalleryController extends ChangeNotifier {
   final AppDatabase _database;
@@ -104,7 +104,7 @@ class GalleryController extends ChangeNotifier {
     if (scrollController.hasClients) previousOffset = scrollController.offset;
 
     try {
-      final appDir = await getApplicationSupportDirectory();
+      final appDir = EnvironmentService.appSupportPath;
       const int batchSize = 100;
 
       // delete physical files in batches
@@ -127,7 +127,7 @@ class GalleryController extends ChangeNotifier {
 
           // delete thumbnail file
           if (item.thumbnailPath != null) {
-            final thumbFile = File(p.join(appDir.path, "thumbnails", item.thumbnailPath!));
+            final thumbFile = File(p.join(appDir, "thumbnails", item.thumbnailPath!));
             try {
               if (await thumbFile.exists()) await thumbFile.delete();
             } catch (e) {

@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import '../services/logger_service.dart';
+import '../services/environment_service.dart';
 
 class _ThumbnailRequest {
   final String sourcePath;
@@ -59,8 +58,6 @@ Future<bool> _generateImageInIsolate(_ThumbnailRequest request) async {
 class ThumbnailHelper {
   ThumbnailHelper._();
 
-  static String? _cachedFfmpegPath;
-
   /// generates a thumbnail (250x250 crop) and returns the filename
   /// returns null if generation fails or audio
   static Future<String?> generateThumbnail({
@@ -71,16 +68,16 @@ class ThumbnailHelper {
   }) async {
     try {
       // prepare storage (AppData/thumbnails)
-      final appDir = await getApplicationSupportDirectory();
-      final thumbDir = Directory(p.join(appDir.path, 'thumbnails'));
+      final appDir = EnvironmentService.appSupportPath;
+      final thumbDir = Directory(p.join(appDir, "thumbnails"));
       if (!await thumbDir.exists()) {
         await thumbDir.create(recursive: true);
       }
 
       // determine output format
       final ext = p.extension(sourcePath).toLowerCase();
-      final isTransparent = ['.png', '.gif', '.webp'].contains(ext);
-      final targetExt = isTransparent ? '.png' : '.jpg'; // use .png extension if we need transparency, otherwise .jpg
+      final isTransparent = [".png", ".gif", ".webp"].contains(ext);
+      final targetExt = isTransparent ? ".png" : ".jpg"; // use .png extension if we need transparency, otherwise .jpg
       final thumbFileName = '$fileHash$targetExt';
       final thumbFile = File(p.join(thumbDir.path, thumbFileName));
 
@@ -90,7 +87,7 @@ class ThumbnailHelper {
       }
 
       // generate thumbnail
-      if (fileType == 'image' || fileType == 'gif') {
+      if (fileType == "image" || fileType == "gif") {
         final request = _ThumbnailRequest(
           sourcePath: sourcePath, 
           destinationPath: thumbFile.path, 
@@ -101,7 +98,7 @@ class ThumbnailHelper {
         final success = await compute(_generateImageInIsolate, request);
         return success ? thumbFileName : null;
       }
-      else if (fileType == 'video') {
+      else if (fileType == "video") {
         final success = await _processVideo(sourcePath, thumbFile, durationMs);
         return success ? thumbFileName : null;
       }
@@ -116,14 +113,13 @@ class ThumbnailHelper {
   // video logic (extract frame -> image logic)
   static Future<bool> _processVideo(String sourcePath, File target, int durationMs) async {
     try {
-      final ffmpegPath = await _getFfmpegPath();
-      if (ffmpegPath == null) return false;
+      final ffmpegPath = EnvironmentService.ffmpegPath;
 
       // calculate 10% timestamp
       int targetMs = (durationMs * 0.10).toInt();
 
       final timeString = _formatDuration(targetMs); // format as HH:MM:SS.mmm for FFmpeg
-      final tempFrame = File('${target.path}.tmp.jpg'); // extract frame to a temp file
+      final tempFrame = File("${target.path}.tmp.jpg"); // extract frame to a temp file
 
       final result = await Process.run(
         ffmpegPath,
@@ -174,29 +170,5 @@ class ThumbnailHelper {
       "${twoDigits(duration.inMinutes.remainder(60))}:"
       "${twoDigits(duration.inSeconds.remainder(60))}."
       "${threeDigits(duration.inMilliseconds.remainder(1000))}";
-  }
-
-  static Future<String?> _getFfmpegPath() async {
-    if (_cachedFfmpegPath != null && await File(_cachedFfmpegPath!).exists()) {
-      return _cachedFfmpegPath;
-    }
-    try {
-      final dir = await getApplicationSupportDirectory();
-      final targetPath = p.join(dir.path, 'ffmpeg.exe');
-      final targetFile = File(targetPath);
-
-      if (!await targetFile.exists()) {
-        LogService.i("Extracting ffmpeg...");
-        final byteData = await rootBundle.load('assets/bin/ffmpeg.exe');
-        final buffer = byteData.buffer.asUint8List();
-        await targetFile.writeAsBytes(buffer, flush: true);
-        if (!Platform.isWindows) await Process.run('chmod', ['+x', targetPath]);
-      }
-      _cachedFfmpegPath = targetPath;
-      return targetPath;
-    } catch (e) {
-      LogService.e("Failed to extract ffmpeg: $e");
-      return null;
-    }
   }
 }

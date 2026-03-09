@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import 'package:image_size_getter/image_size_getter.dart' as isg;
 import 'package:image_size_getter/file_input.dart';
 import '../services/logger_service.dart';
+import '../services/environment_service.dart';
 
 class MediaMetadata {
   final int width;
@@ -21,7 +19,6 @@ class MediaMetadata {
 
 class MetadataHelper {
   MetadataHelper._();
-  static String? _cachedFfprobePath;
 
   // main entry point
   static Future<MediaMetadata> extractMetadata(String filePath, String fileType) async {
@@ -62,12 +59,7 @@ class MetadataHelper {
   // video or audio (slow)
   static Future<MediaMetadata> _extractFfprobeMetadata(String path) async {
     try {
-      final ffprobePath = await _getFfprobePath();
-
-      if (ffprobePath == null) {
-        LogService.e("FFprobe path is NULL. Extraction failed.");
-        return const MediaMetadata();
-      }
+      final ffprobePath = EnvironmentService.ffprobePath;
 
       final result = await Process.run(
         ffprobePath, 
@@ -122,42 +114,6 @@ class MetadataHelper {
     } catch (e) {
       LogService.e("Exception in _extractFfprobeMetadata: $e");
       return const MediaMetadata();
-    }
-  }
-
-  // helper: extract asset to Bin
-  static Future<String?> _getFfprobePath() async {
-    // return cached path if ready
-    if (_cachedFfprobePath != null && await File(_cachedFfprobePath!).exists()) {
-      return _cachedFfprobePath;
-    }
-
-    try {
-      final dir = await getApplicationSupportDirectory();
-      final targetPath = p.join(dir.path, 'ffprobe.exe');
-      final targetFile = File(targetPath);
-
-      // check if we need to extract (first run only)
-      if (!await targetFile.exists()) {
-        LogService.i("Extracting ffprobe to $targetPath...");
-
-        final byteData = await rootBundle.load('assets/bin/ffprobe.exe');
-        final buffer = byteData.buffer.asUint8List();
-        
-        await targetFile.writeAsBytes(buffer, flush: true);
-        
-        if (!Platform.isWindows) {
-           await Process.run('chmod', ['+x', targetPath]);
-        }
-
-        LogService.i("FFprobe extracted successfully.");
-      }
-
-      _cachedFfprobePath = targetPath;
-      return targetPath;
-    } catch (e) {
-      LogService.e("Failed to extract ffprobe: $e");
-      return null;
     }
   }
 }

@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../data/app_database.dart';
 import 'logger_service.dart';
+import '../services/environment_service.dart';
 
 // to pass data into the isolate
 class _BundleInput {
@@ -46,7 +47,7 @@ class BundleService {
     }).toList();
 
     final tempDir = await getTemporaryDirectory();
-    final appSupportDir = await getApplicationSupportDirectory();
+    final appDir = EnvironmentService.appSupportPath;
 
     final receivePort = ReceivePort();
 
@@ -56,7 +57,7 @@ class BundleService {
       _BundleInput(
         sendPort: receivePort.sendPort,
         tempPath: tempDir.path,
-        appSupportPath: appSupportDir.path,
+        appSupportPath: appDir,
         items: rawItems,
       ),
     );

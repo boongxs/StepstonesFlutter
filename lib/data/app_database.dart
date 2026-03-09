@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import '../services/environment_service.dart';
 
 part 'app_database.g.dart';
 
@@ -164,14 +164,14 @@ class AppDatabase extends _$AppDatabase {
 // connection helper
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dbFolder = await getApplicationSupportDirectory();
+    final dbFolder = Directory(EnvironmentService.appSupportPath);
 
     // ensure folder exists
     if (!await dbFolder.exists()) {
       await dbFolder.create(recursive: true);
     }
 
-    final file = File(p.join(dbFolder.path, 'stepstones_flt.sqlite'));
+    final file = File(p.join(dbFolder.path, "stepstones_flt.sqlite"));
     return NativeDatabase.createInBackground(file);
   });
 }
