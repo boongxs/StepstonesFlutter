@@ -3,9 +3,10 @@ import 'package:path/path.dart' as p;
 import 'package:stepstones_flt/widgets/edit_tags_dialog.dart';
 import '../data/app_database.dart';
 import 'clipboard_service.dart';
-import '../providers/main_provider.dart';
 import '../widgets/media_viewer_dialog.dart';
 import '../utils/snackbar_helper.dart';
+import 'package:provider/provider.dart';
+import '../controllers/gallery_controller.dart';
 
 class MediaActionService {
   MediaActionService._();
@@ -26,7 +27,10 @@ class MediaActionService {
   }
 
   // edit command
-  static Future<void> onEdit(BuildContext context, MainProvider provider, MediaItem item) async {
+  static Future<void> onEdit(BuildContext context, MediaItem item) async {
+    // grab controller before opening dialog
+    final gallery = context.read<GalleryController>();
+
     // open dialog
     final newTags = await showDialog<String>(
       context: context,
@@ -40,7 +44,7 @@ class MediaActionService {
     if (newTags == null) return;
 
     // save changes
-    final success = await provider.gallery.updateTags(item, newTags);
+    final success = await gallery.updateTags(item, newTags);
 
     // ui feedback
     if (context.mounted) {
@@ -52,9 +56,12 @@ class MediaActionService {
   }
 
   // enlarge command
-  static Future<void> onEnlarge(BuildContext context, MainProvider provider, int index) async {
+  static Future<void> onEnlarge(BuildContext context, int index) async {
+    // grab controller before opening dialog
+    final gallery = context.read<GalleryController>();
+
     // look up the item from provider using the index
-    final item = provider.gallery.getItem(index);
+    final item = gallery.getItem(index);
     if (item == null) return;
 
     const allowedTypes = ['image', 'gif', 'video', 'audio'];
@@ -72,12 +79,13 @@ class MediaActionService {
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.8),
-      builder: (ctx) => MediaViewerDialog(initialIndex: index, provider: provider),
+      builder: (ctx) => MediaViewerDialog(initialIndex: index),
     );
   }
 
   // delete command
-  static Future<bool> onDelete(BuildContext context, MainProvider provider, MediaItem item, {VoidCallback ? onConfirm}) async {
+  static Future<bool> onDelete(BuildContext context, MediaItem item, {VoidCallback ? onConfirm}) async {
+    final gallery = context.read<GalleryController>();
     final messenger = rootMessengerKey.currentState ?? ScaffoldMessenger.of(context);
 
     // show confirmation dialog
@@ -113,7 +121,7 @@ class MediaActionService {
     }
 
     // perform delete
-    final success = await provider.gallery.deleteItems([item]);
+    final success = await gallery.deleteItems([item]);
 
     // show feedback
     messenger.showStepstonesSnackBar(

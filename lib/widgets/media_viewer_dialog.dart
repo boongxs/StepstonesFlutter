@@ -6,16 +6,15 @@ import '../../data/app_database.dart';
 import '../services/media_action_service.dart';
 import 'universal_player.dart';
 import 'toolbar_button.dart';
-import '../providers/main_provider.dart';
+import 'package:provider/provider.dart';
+import '../controllers/gallery_controller.dart';
 
 class MediaViewerDialog extends StatefulWidget {
   final int initialIndex;
-  final MainProvider provider;
 
   const MediaViewerDialog({
     super.key,
     required this.initialIndex,
-    required this.provider,
   });
 
   @override
@@ -51,7 +50,9 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   }
 
   void _goToNext() {
-    if (_currentIndex < widget.provider.gallery.totalItemCount - 1) {
+    final totalCount = context.read<GalleryController>().totalItemCount;
+
+    if (_currentIndex < totalCount - 1) {
       setState(() => _currentIndex++);
     }
   }
@@ -70,12 +71,11 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.provider.gallery,
-      builder: (context, _) {
+    return Consumer<GalleryController>(
+      builder: (context, gallery, _) {
         // fetch current item
-        final MediaItem? item = widget.provider.gallery.getItem(_currentIndex);
-        final int totalCount = widget.provider.gallery.totalItemCount;
+        final MediaItem? item = gallery.getItem(_currentIndex);
+        final int totalCount = gallery.totalItemCount;
 
         // if item hasn't loaded from the DB yet, show a loading indicator
         if (item == null) {
@@ -245,7 +245,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                 icon: Icons.edit_rounded,
                                 color: const Color(0xFF25BB00), 
                                 tooltip: "Edit Tags", 
-                                onPressed: () => MediaActionService.onEdit(dialogContext, widget.provider, item),
+                                onPressed: () => MediaActionService.onEdit(dialogContext, item),
                               ),
 
                               const SizedBox(width: 8),
@@ -258,7 +258,6 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                 onPressed: () async {
                                   await MediaActionService.onDelete(
                                     dialogContext,
-                                    widget.provider,
                                     item,
                                     onConfirm: () {
                                       Navigator.pop(context);

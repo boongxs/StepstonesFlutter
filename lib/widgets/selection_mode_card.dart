@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/main_provider.dart';
+import '../controllers/selection_controller.dart';
+import '../providers/status_card_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/bundle_service.dart';
 import '../services/logger_service.dart';
@@ -13,8 +14,7 @@ class SelectionModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<MainProvider>();
-    final selection = vm.selection;
+    final selection = context.watch<SelectionController>();
 
     return Container(
       width: 300,
@@ -88,25 +88,26 @@ class SelectionModeCard extends StatelessWidget {
               contentColor: const Color(0xFF64B5F6),
               defaultContentColor: Colors.white,
               onTap: () async {
-                final provider = context.read<MainProvider>();
-                final selectedItems = await provider.selection.getSelectedItems();
+                final selectionController = context.read<SelectionController>();
+                final statusProvider = context.read<StatusCardProvider>();
 
+                final selectedItems = await selectionController.getSelectedItems();
                 if (selectedItems.isEmpty) return;
 
-                provider.status.startJob("Packing media items...");
+                statusProvider.startJob("Packing media items...");
 
                 // create bundle in temp
                 final tempZipPath = await BundleService.createBundle(
                   selectedItems,
                   onProgress: (fileName) {
                     // update card subtitle with current file
-                    provider.status.updateProgress(fileName);
+                    statusProvider.updateProgress(fileName);
                   },
                 );
 
                 // error occurred
                 if (tempZipPath == null) {
-                  provider.status.finishJob("Packing failed", isError: true);
+                  statusProvider.finishJob("Packing failed", isError: true);
                   if (context.mounted) {
                     context.showStepstonesSnackBar(
                       "Failed to create bundle",
@@ -118,7 +119,7 @@ class SelectionModeCard extends StatelessWidget {
                 }
 
                 // packing successful
-                provider.status.finishJob("Packing complete");
+                statusProvider.finishJob("Packing complete");
 
                 // ask user where to save
                 String? savePath = await FilePicker.platform.saveFile(
@@ -130,15 +131,15 @@ class SelectionModeCard extends StatelessWidget {
 
                 if (savePath != null) {
                   // update UI to show saving status
-                  provider.status.startJob("Saving to disk...");
-                  provider.status.updateProgress(savePath); // update subtitle text to show destination path
+                  statusProvider.startJob("Saving to disk...");
+                  statusProvider.updateProgress(savePath); // update subtitle text to show destination path
 
                   LogService.i("Attempting to save bundle from: $tempZipPath to: $savePath");
                   try {
                     await compute(_moveFileInBackground, [tempZipPath, savePath]);
 
                     LogService.i("Bundle saved successfully to: $savePath");
-                    provider.status.finishJob("Bundle saved");
+                    statusProvider.finishJob("Bundle saved");
 
                     if (context.mounted) {
                       context.showStepstonesSnackBar(
@@ -146,12 +147,12 @@ class SelectionModeCard extends StatelessWidget {
                       );
 
                       // exit selection mode on success
-                      provider.selection.toggleSelectionMode();
+                      selectionController.toggleSelectionMode();
                     }
                   } catch (e) {
                     LogService.e("Failed to save bundle file", e);
 
-                    provider.status.finishJob("Save failed", isError: true);
+                    statusProvider.finishJob("Save failed", isError: true);
 
                     if (context.mounted) {
                       context.showStepstonesSnackBar(
@@ -165,7 +166,7 @@ class SelectionModeCard extends StatelessWidget {
                     // user cancelled save dialog, clean up temp file
                     await compute(_cleanupTempFile, tempZipPath);
 
-                    provider.status.finishJob("Export cancelled");
+                    statusProvider.finishJob("Export cancelled");
                   } catch (e) {
                     LogService.w("Failed to delete temp bundle file: $tempZipPath");
                   }

@@ -2,89 +2,100 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
-import '../providers/main_provider.dart';
 import '../data/app_database.dart';
 import '../utils/min_extra_delegate.dart';
 import 'quadrant_button.dart';
 import '../services/media_action_service.dart';
 import 'selection_border_painter.dart';
+import '../controllers/session_controller.dart';
+import '../controllers/gallery_controller.dart';
+import '../controllers/selection_controller.dart';
+import '../providers/status_card_provider.dart';
 
 class MediaGrid extends StatelessWidget {
   const MediaGrid({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MainProvider>(
-      builder: (context, vm, _) {
-        // empty state
-        if (vm.session.mediaFolderPath == null) {
-          return const Center(child: Text("Select a folder to begin"));
-        }
+    final session = context.watch<SessionController>();
+    final gallery = context.watch<GalleryController>();
+    final status = context.watch<StatusCardProvider>();
 
-        // show "no items" only if we are not currently syncing to avoid flicker on startup
-        if (vm.gallery.totalItemCount == 0 && !vm.status.isLoading) {
-          return const Center(child: Text("No media items found"));
-        }
+    // empty state
+    if (session.mediaFolderPath == null) {
+      return const Center(
+        child: Text(
+          "Select a folder to begin"
+        )
+      );
+    }
 
-        // pass the cached base path to cells
-        final thumbBaseDir = vm.session.appSupportPath != null
-          ? p.join(vm.session.appSupportPath!, 'thumbnails')
-          : null;
+    if (gallery.totalItemCount == 0 && !status.isLoading) {
+      return const Center(
+        child: Text(
+          "No media items found"
+        )
+      );
+    }
 
-        return RawScrollbar(
-          controller: vm.gallery.scrollController,
-          thumbVisibility: true,
-          trackVisibility: true,
-          trackColor: const Color(0xFF3a3a3a),
-          interactive: true,
-          minThumbLength: 70,
-          thickness: 20,
-          radius: const Radius.circular(5),
-          thumbColor: const Color(0xFF6f6f6f),
-          padding: const EdgeInsets.only(right: 5.0),
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-            child: GridView.builder(
-              controller: vm.gallery.scrollController,
-              padding: const EdgeInsets.all(30),
-              itemCount: vm.gallery.totalItemCount, // item count ensures scrollbar resizes properly
-            
-              // responsive layout
-              gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
-                minCrossAxisExtent: 270, // cells will be around 500px wide
-                mainAxisExtent: 250, // cells will be exactly 250px tall
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-            
-              itemBuilder: (context, index) {
-                // ask provider for data, if null trigger fetch
-                final MediaItem? item = vm.gallery.getItem(index);
-                final isDeleting = item != null && vm.gallery.isItemAnimating(item.id);
-            
-                return AnimatedScale(
-                  scale: isDeleting ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInBack,
-                  child: AnimatedOpacity(
-                    opacity: isDeleting ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: _MediaCell(
-                      key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
-                      item: item, 
-                      index: index,
-                      thumbBaseDir: thumbBaseDir
-                    ),
-                  ),
-                );
-              },
-            ),
+    // pass cached base path to cells
+    final thumbBaseDir = session.appSupportPath != null
+      ? p.join(session.appSupportPath!, "thumbnails")
+      : null;
+
+    return RawScrollbar(
+      controller: gallery.scrollController,
+      thumbVisibility: true,
+      trackVisibility: true,
+      trackColor: const Color(0xFF3a3a3a),
+      interactive: true,
+      minThumbLength: 70,
+      thickness: 20,
+      radius: const Radius.circular(5),
+      thumbColor: const Color(0xFF6f6f6f),
+      padding: const EdgeInsets.only(right: 5.0),
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        child: GridView.builder(
+          controller: gallery.scrollController,
+          padding: const EdgeInsets.all(30),
+          itemCount: gallery.totalItemCount, // item count ensures scrollbar resizes properly
+        
+          // responsive layout
+          gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
+            minCrossAxisExtent: 270, // cells will be around 500px wide
+            mainAxisExtent: 250, // cells will be exactly 250px tall
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
           ),
-        );
-      },
+        
+          itemBuilder: (context, index) {
+            // ask provider for data, if null trigger fetch
+            final MediaItem? item = gallery.getItem(index);
+            final isDeleting = item != null && gallery.isItemAnimating(item.id);
+        
+            return AnimatedScale(
+              scale: isDeleting ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInBack,
+              child: AnimatedOpacity(
+                opacity: isDeleting ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: _MediaCell(
+                  key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
+                  item: item, 
+                  index: index,
+                  thumbBaseDir: thumbBaseDir
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
+
 
 class _MediaCell extends StatefulWidget {
   final MediaItem? item;
@@ -118,9 +129,9 @@ class _MediaCellState extends State<_MediaCell> {
     }
 
     // access provider for selection mode
-    final vm = context.watch<MainProvider>();
-    final isSelectionMode = vm.selection.isSelectionMode;
-    final isSelected = vm.selection.isItemSelected(widget.item!.id);
+    final selection = context.watch<SelectionController>();
+    final isSelectionMode = selection.isSelectionMode;
+    final isSelected = selection.isItemSelected(widget.item!.id);
 
     // logic extraction
     final hasThumb = widget.item!.thumbnailPath != null && widget.thumbBaseDir != null;
@@ -214,7 +225,7 @@ class _MediaCellState extends State<_MediaCell> {
       return MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          onTap: () => vm.selection.toggleItem(widget.item!.id),
+          onTap: () => selection.toggleItem(widget.item!.id),
           child: Stack(
             children: [
               // thumbnail and duration badge
@@ -303,7 +314,7 @@ class _MediaCellState extends State<_MediaCell> {
                           QuadrantButton( // edit
                             icon: Icons.edit_rounded,
                             hoverColor: const Color(0xFF25BB00),
-                            onTap: () => MediaActionService.onEdit(context, vm, widget.item!),
+                            onTap: () => MediaActionService.onEdit(context, widget.item!),
                           ),
                         ],
                       ),
@@ -315,12 +326,12 @@ class _MediaCellState extends State<_MediaCell> {
                           QuadrantButton( // enlarge
                             icon: Icons.fullscreen_rounded,
                             hoverColor: const Color(0xFF4FAFFF),
-                            onTap: () => MediaActionService.onEnlarge(context, vm, widget.index),
+                            onTap: () => MediaActionService.onEnlarge(context, widget.index),
                           ),
                           QuadrantButton(
                             icon: Icons.delete_outline_rounded,
                             hoverColor: const Color(0xFFFF5454),
-                            onTap: () => MediaActionService.onDelete(context, vm, widget.item!),
+                            onTap: () => MediaActionService.onDelete(context, widget.item!),
                           ),
                         ],
                       ),

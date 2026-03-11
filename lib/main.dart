@@ -1,4 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:stepstones_flt/controllers/gallery_controller.dart';
+import 'package:stepstones_flt/controllers/selection_controller.dart';
+import 'package:stepstones_flt/controllers/session_controller.dart';
+import 'package:stepstones_flt/controllers/sync_controller.dart';
+import 'package:stepstones_flt/data/app_database.dart';
+import 'package:stepstones_flt/providers/status_card_provider.dart';
+import 'providers/logs_view_provider.dart';
 import 'locator.dart';
 import 'services/logger_service.dart';
 import 'screens/main_screen.dart';
@@ -19,7 +27,34 @@ void main() async {
   setupLocator(); // register all singletons (services...)
 
   LogService.i('Application starting up...');
-  runApp(const MainApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SessionController()),
+        ChangeNotifierProvider(create: (_) => StatusCardProvider()),
+        ChangeNotifierProvider(create: (_) => LogsViewProvider()),
+
+        ChangeNotifierProvider(create: (context) => GalleryController(
+          getIt<AppDatabase>(),
+          context.read<SessionController>(),
+        )),
+
+        ChangeNotifierProvider(create: (context) => SelectionController(
+          getIt<AppDatabase>(), 
+          context.read<SessionController>(), 
+          context.read<GalleryController>(),
+        )),
+
+        ChangeNotifierProvider(create: (context) => SyncController(
+          getIt<AppDatabase>(), 
+          context.read<SessionController>(), 
+          context.read<GalleryController>(), 
+          context.read<StatusCardProvider>(),
+        )),
+      ],
+      child: const MainApp(),
+    )
+  );
 }
 
 class MainApp extends StatelessWidget {

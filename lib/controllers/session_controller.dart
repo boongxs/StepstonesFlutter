@@ -20,6 +20,17 @@ class SessionController extends ChangeNotifier {
 
   double get freeSpaceMB => _freeSpaceMB;
 
+  SessionController() {
+    _startup();
+  }
+
+  Future<void> _startup() async {
+    await initialize();
+    updateDiskSpace();
+
+    notifyListeners();
+  }
+
   // load previously saved media folder path
   Future<void> initialize() async {
     _appSupportPath = AppConstants.appSupportPath;

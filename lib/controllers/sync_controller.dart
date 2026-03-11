@@ -19,10 +19,10 @@ import 'package:flutter/foundation.dart';
 import 'package:disk_space_2/disk_space_2.dart';
 
 class SyncController extends ChangeNotifier {
-  final AppDatabase _database;
-  final SessionController _session;
-  final GalleryController _gallery;
-  final StatusCardProvider _jobStatus;
+  final AppDatabase db;
+  final SessionController session;
+  final GalleryController gallery;
+  final StatusCardProvider jobStatus;
 
   final FileService _fileService = getIt<FileService>();
   final FilePickerService _filePickerService = getIt<FilePickerService>();
@@ -30,16 +30,23 @@ class SyncController extends ChangeNotifier {
   final List<String> _uploadQueue = [];
   bool _isUploading = false;
 
-  SyncController(
-    this._database,
-    this._session,
-    this._gallery,
-    this._jobStatus,
-  );
+  String? _previousPath;
+
+  SyncController(this.db, this.session, this.gallery, this.jobStatus) {
+    session.addListener(() {
+      if (session.mediaFolderPath != _previousPath) {
+        _previousPath = session.mediaFolderPath;
+
+        if (session.mediaFolderPath != null) {
+          performFullSync();
+        }
+      }
+    });
+  }
 
   // --- actions ---
   Future<void> uploadFiles() async {
-    if (_session.mediaFolderPath == null) {
+    if (session.mediaFolderPath == null) {
       LogService.w("No media folder selected.");
       return;
     }
@@ -62,7 +69,7 @@ class SyncController extends ChangeNotifier {
     // process regular media files
     _uploadQueue.addAll(files);
 
-    _jobStatus.startJob("Uploading files...");
+    jobStatus.startJob("Uploading files...");
     notifyListeners();
 
     if (!_isUploading) {
@@ -72,18 +79,18 @@ class SyncController extends ChangeNotifier {
 
   Future<void> performFullSync() async {
     // get media folder path from Session Controller
-    final folderPath = _session.mediaFolderPath;
+    final folderPath = session.mediaFolderPath;
     if (folderPath == null) return;
 
-    _jobStatus.startJob("Synchronizing media folder");
+    jobStatus.startJob("Synchronizing media folder");
     notifyListeners();
 
-    await _gallery.fullRefresh(resetScroll: false);
+    await gallery.fullRefresh(resetScroll: false);
 
     bool hasError = false;
     try {
       // get DB files for current media folder
-      final dbFiles = await _database.getFilenamesInFolder(folderPath);
+      final dbFiles = await db.getFilenamesInFolder(folderPath);
 
       // get disk files from current media folder
       final dir = Directory(folderPath);
@@ -102,9 +109,9 @@ class SyncController extends ChangeNotifier {
       hasError = true;
     } finally {
       if (hasError) {
-        _jobStatus.finishJob("Synchronization failed", isError: true);
+        jobStatus.finishJob("Synchronization failed", isError: true);
       } else {
-        _jobStatus.finishJob("Media folder synchronized");
+        jobStatus.finishJob("Media folder synchronized");
       }
       notifyListeners();
     }
@@ -112,7 +119,7 @@ class SyncController extends ChangeNotifier {
 
   Future<void> _processUploadQueue({bool silent = false}) async {
     _isUploading = true;
-    final folderPath = _session.mediaFolderPath!;
+    final folderPath = session.mediaFolderPath!;
 
     // disk space check
     double totalPayloadBytes = 0;
@@ -128,7 +135,7 @@ class SyncController extends ChangeNotifier {
 
     // not enough space
     if (!hasSpace) {
-      _jobStatus.finishJob("Insufficient disk space", isError: true);
+      jobStatus.finishJob("Insufficient disk space", isError: true);
       _uploadQueue.clear();
       _isUploading = false;
       notifyListeners();
@@ -141,7 +148,7 @@ class SyncController extends ChangeNotifier {
       final isImport = p.isWithin(folderPath, sourcePath);
 
       // update status card subtitle
-      _jobStatus.updateProgress(fileName);
+      jobStatus.updateProgress(fileName);
 
       // copy / import
       CopyResponse response;
@@ -178,7 +185,7 @@ class SyncController extends ChangeNotifier {
             thumbnailPath: drift.Value(thumb),
           );
 
-          await _database.insertMediaItem(entry);
+          await db.insertMediaItem(entry);
         } catch (e) {
           final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
           if (isDuplicate) {
@@ -195,16 +202,16 @@ class SyncController extends ChangeNotifier {
     }
 
     if (silent) {
-      _jobStatus.updateProgress("");
+      jobStatus.updateProgress("");
     } else {
       // if manual upload (not orphan sync), finish job
-      _jobStatus.finishJob("Upload complete");
+      jobStatus.finishJob("Upload complete");
     }
 
     // queue empty -> refresh
-    await _gallery.fullRefresh(resetScroll: false);
+    await gallery.fullRefresh(resetScroll: false);
 
-    _session.updateDiskSpace();
+    session.updateDiskSpace();
 
     _isUploading = false;
     LogService.i("Queue empty. Sync complete.");
@@ -230,11 +237,11 @@ class SyncController extends ChangeNotifier {
       LogService.i("Removing ${ghosts.length} ghosts...");
 
       // fetch full items so we know which thumbnails to delete
-      final ghostItems = await _database.getMediaItemsByFilenames(ghosts, folderPath);
+      final ghostItems = await db.getMediaItemsByFilenames(ghosts, folderPath);
 
       // delete thumbnail files
-      if (_session.appSupportPath != null) {
-        final thumbDir = Directory(p.join(_session.appSupportPath!, "thumbnails"));
+      if (session.appSupportPath != null) {
+        final thumbDir = Directory(p.join(session.appSupportPath!, "thumbnails"));
 
         for (var item in ghostItems) {
           if (item.thumbnailPath != null) {
@@ -251,9 +258,9 @@ class SyncController extends ChangeNotifier {
       }
 
       // delete ghost database records
-      await _database.deleteMediaItems(ghosts, folderPath);
+      await db.deleteMediaItems(ghosts, folderPath);
 
-      await _gallery.refreshLibrary();
+      await gallery.refreshLibrary();
 
       LogService.i("Removed ${ghosts.length} ghosts.");
     }
@@ -282,17 +289,17 @@ class SyncController extends ChangeNotifier {
       }
     } else {
       // if nothing was added, just ensure gallery is synced up
-      await _gallery.fullRefresh();
+      await gallery.fullRefresh();
     }
   }
 
   // helper: check all valid items in current media folder and ensure they have thumbnails
   Future<void> _validateThumbnails(String folderPath) async {
-    if (_session.appSupportPath == null) return;
+    if (session.appSupportPath == null) return;
 
-    final items = await _database.getItemsInFolder(folderPath);
+    final items = await db.getItemsInFolder(folderPath);
     final validTypes = const ["image", "video", "gif"];
-    final thumbDir = Directory(p.join(_session.appSupportPath!, "thumbnails"));
+    final thumbDir = Directory(p.join(session.appSupportPath!, "thumbnails"));
     int restoredCount = 0;
 
     for (var item in items) {
@@ -328,7 +335,7 @@ class SyncController extends ChangeNotifier {
 
             // if the thumbnailPath was null or path changed, update DB record
             if (item.thumbnailPath != newThumbPath) {
-              await _database.updateThumbnail(item.hashedFileName, newThumbPath);
+              await db.updateThumbnail(item.hashedFileName, newThumbPath);
             }
 
             // evict old image from Flutter's cache
@@ -346,12 +353,12 @@ class SyncController extends ChangeNotifier {
 
     if (restoredCount > 0) {
       LogService.i("Restored $restoredCount missing thumbnails.");
-      await _gallery.refreshLibrary();
+      await gallery.refreshLibrary();
     }
   }
 
   Future<void> _handleBundleImport(String bundlePath) async {
-    final destFolder = _session.mediaFolderPath;
+    final destFolder = session.mediaFolderPath;
     if (destFolder == null) return;
 
     // bundle disk space check
@@ -365,56 +372,56 @@ class SyncController extends ChangeNotifier {
 
       final hasSpace = await _hasEnoughSpace(requiredMB, destFolder);
       if (!hasSpace) {
-        _jobStatus.finishJob("Insufficient disk space for bundle", isError: true);
+        jobStatus.finishJob("Insufficient disk space for bundle", isError: true);
         notifyListeners();
         return;
       }
     }
 
     // unpacking
-    _jobStatus.startJob("Unpacking bundle...");
+    jobStatus.startJob("Unpacking bundle...");
     notifyListeners();
 
     final unpackedPath = await BundleImportService.unpackBundle(bundlePath);
     if (unpackedPath == null) {
-      _jobStatus.finishJob("Unpack failed", isError: true);
+      jobStatus.finishJob("Unpack failed", isError: true);
       notifyListeners();
       return;
     }
 
     final metadata = await BundleImportService.readMetadata(unpackedPath);
     if (metadata == null) {
-      _jobStatus.finishJob("Invalid bundle metadata", isError: true);
+      jobStatus.finishJob("Invalid bundle metadata", isError: true);
       notifyListeners();
       await BundleImportService.cleanup(unpackedPath);
       return;
     }
 
-    _jobStatus.finishJob("Unpacking complete");
+    jobStatus.finishJob("Unpacking complete");
     notifyListeners();
 
     // importing
     final itemsToImport = metadata.entries.toList();
     if (itemsToImport.isEmpty) {
-      _jobStatus.finishJob("Bundle is empty");
+      jobStatus.finishJob("Bundle is empty");
       await BundleImportService.cleanup(unpackedPath);
       return;
     }
 
-    _jobStatus.startJob("Processing bundle...");
+    jobStatus.startJob("Processing bundle...");
     notifyListeners();
 
     final mediaDir = p.join(unpackedPath, "media");
     final thumbsDir = p.join(unpackedPath, "thumbs");
 
-    final supportPath = _session.appSupportPath;
+    final supportPath = session.appSupportPath;
     final systemThumbsDir = supportPath != null ? p.join(supportPath, "thumbnails") : null;
 
     for (final entry in itemsToImport) {
       final hashedFileName = entry.key;
       final data = entry.value as Map<String, dynamic>;
 
-      _jobStatus.updateProgress(hashedFileName);
+      jobStatus.updateProgress(hashedFileName);
 
       final sourceMedia = p.join(mediaDir, hashedFileName);
       final destMedia = p.join(destFolder, hashedFileName);
@@ -463,7 +470,7 @@ class SyncController extends ChangeNotifier {
             thumbnailPath: drift.Value(thumbPath),
           );
 
-          await _database.insertMediaItem(companion);
+          await db.insertMediaItem(companion);
         } catch (e) {
           final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
           if (isDuplicate) {
@@ -477,10 +484,10 @@ class SyncController extends ChangeNotifier {
 
     // cleanup & refresh
     await BundleImportService.cleanup(unpackedPath);
-    await _gallery.fullRefresh();
-    _session.updateDiskSpace();
+    await gallery.fullRefresh();
+    session.updateDiskSpace();
 
-    _jobStatus.finishJob("Bundle import complete");
+    jobStatus.finishJob("Bundle import complete");
     LogService.i("Bundle import complete.");
     notifyListeners();
   }
