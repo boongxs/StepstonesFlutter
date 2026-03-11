@@ -5,6 +5,7 @@ import 'services/settings_service.dart';
 import 'services/file_picker_service.dart';
 import 'services/file_service.dart';
 import 'data/app_database.dart';
+import 'controllers/export_controller.dart';
 
 final getIt = GetIt.instance;
 
@@ -15,4 +16,5 @@ void setupLocator() {
   getIt.registerLazySingleton<SettingsService>(() => SettingsService());
   getIt.registerLazySingleton<FilePickerService>(() => FilePickerService());
   getIt.registerLazySingleton<FileService>(() => FileService());
+  getIt.registerLazySingleton<ExportController>(() => ExportController());
 }

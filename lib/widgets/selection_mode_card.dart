@@ -1,13 +1,10 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controllers/selection_controller.dart';
 import '../providers/status_card_provider.dart';
-import 'package:file_picker/file_picker.dart';
-import '../services/bundle_service.dart';
-import '../services/logger_service.dart';
 import '../utils/snackbar_helper.dart';
+import '../controllers/export_controller.dart';
+import '../locator.dart';
 
 class SelectionModeCard extends StatelessWidget {
   const SelectionModeCard({super.key});
@@ -88,88 +85,33 @@ class SelectionModeCard extends StatelessWidget {
               contentColor: const Color(0xFF64B5F6),
               defaultContentColor: Colors.white,
               onTap: () async {
+                final exportController = getIt<ExportController>();
                 final selectionController = context.read<SelectionController>();
                 final statusProvider = context.read<StatusCardProvider>();
 
                 final selectedItems = await selectionController.getSelectedItems();
-                if (selectedItems.isEmpty) return;
 
-                statusProvider.startJob("Packing media items...");
-
-                // create bundle in temp
-                final tempZipPath = await BundleService.createBundle(
-                  selectedItems,
-                  onProgress: (fileName) {
-                    // update card subtitle with current file
-                    statusProvider.updateProgress(fileName);
-                  },
+                final result = await exportController.exportBundle(
+                  itemsToExport: selectedItems,
+                  status: statusProvider,
                 );
 
-                // error occurred
-                if (tempZipPath == null) {
-                  statusProvider.finishJob("Packing failed", isError: true);
-                  if (context.mounted) {
+                if (!context.mounted) return;
+
+                switch (result.status) {
+                  case ExportStatus.success:
+                    context.showStepstonesSnackBar("Bundle saved successfully");
+                    selectionController.toggleSelectionMode(); // exit selection mode
+                    break;
+                  case ExportStatus.cancelled:
+                    // do nothing
+                    break;
+                  case ExportStatus.error:
                     context.showStepstonesSnackBar(
-                      "Failed to create bundle",
+                      result.errorMessage ?? "An unknown error occurred.",
                       isError: true,
                     );
-                  }
-
-                  return;
-                }
-
-                // packing successful
-                statusProvider.finishJob("Packing complete");
-
-                // ask user where to save
-                String? savePath = await FilePicker.platform.saveFile(
-                  dialogTitle: "Save Stepstones Bundle",
-                  fileName: "MyCollection.stepstone",
-                  type: FileType.custom,
-                  allowedExtensions: ["stepstone"],
-                );
-
-                if (savePath != null) {
-                  // update UI to show saving status
-                  statusProvider.startJob("Saving to disk...");
-                  statusProvider.updateProgress(savePath); // update subtitle text to show destination path
-
-                  LogService.i("Attempting to save bundle from: $tempZipPath to: $savePath");
-                  try {
-                    await compute(_moveFileInBackground, [tempZipPath, savePath]);
-
-                    LogService.i("Bundle saved successfully to: $savePath");
-                    statusProvider.finishJob("Bundle saved");
-
-                    if (context.mounted) {
-                      context.showStepstonesSnackBar(
-                        "Bundle saved successfully",
-                      );
-
-                      // exit selection mode on success
-                      selectionController.toggleSelectionMode();
-                    }
-                  } catch (e) {
-                    LogService.e("Failed to save bundle file", e);
-
-                    statusProvider.finishJob("Save failed", isError: true);
-
-                    if (context.mounted) {
-                      context.showStepstonesSnackBar(
-                        "Error saving file: $e",
-                        isError: true,
-                      );
-                    }
-                  }
-                } else {
-                  try {
-                    // user cancelled save dialog, clean up temp file
-                    await compute(_cleanupTempFile, tempZipPath);
-
-                    statusProvider.finishJob("Export cancelled");
-                  } catch (e) {
-                    LogService.w("Failed to delete temp bundle file: $tempZipPath");
-                  }
+                    break;
                 }
               },
               builder: (isHovered) {
@@ -263,31 +205,6 @@ class SelectionModeCard extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-Future<void> _moveFileInBackground(List<String> paths) async {
-  final sourcePath = paths[0];
-  final destPath = paths[1];
-
-  final source = File(sourcePath);
-  if (!await source.exists()) {
-    throw FileSystemException("Source bundle missing", sourcePath);
-  }
-
-  // heavy copy
-  await source.copy(destPath);
-  await source.delete(); // clean up temp file
-}
-
-Future<void> _cleanupTempFile(String path) async {
-  try {
-    final file = File(path);
-    if (await file.exists()) {
-      await file.delete();
-    }
-  } catch (_) {
-    // ignore errors during cleanup
   }
 }
 

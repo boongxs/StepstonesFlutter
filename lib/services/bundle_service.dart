@@ -15,12 +15,14 @@ class _BundleInput {
   final String tempPath;
   final String appSupportPath;
   final List<Map<String, dynamic>> items;
+  final String? outputPath;
 
   _BundleInput({
     required this.sendPort,
     required this.tempPath,
     required this.appSupportPath,
     required this.items,
+    this.outputPath,
   });
 }
 
@@ -30,6 +32,7 @@ class BundleService {
   // packs selected items into a .stepstone bundle file
   static Future<String?> createBundle(
     List<MediaItem> items, {
+      String? outputPath,
       Function(String currentFile)? onProgress,
     }) async {
     if (items.isEmpty) return null;
@@ -59,6 +62,7 @@ class BundleService {
         tempPath: tempDir.path,
         appSupportPath: appDir,
         items: rawItems,
+        outputPath: outputPath,
       ),
     );
 
@@ -76,6 +80,7 @@ class BundleService {
         } else if (type == "success") {
           // success: path received
           resultPath = message["path"];
+          LogService.i("Bundle successfully created at: $resultPath");
           completer.complete(resultPath);
         } else if (type == "error") {
           // error occurred
@@ -144,8 +149,7 @@ class BundleService {
       }
 
       if (successCount == 0) {
-        input.sendPort.send("ERROR:No valid media items found to bundle.");
-        input.sendPort.send(false);
+        input.sendPort.send({'type': 'error', 'message': 'No valid media items found to bundle.'});
         return;
       }
 
@@ -154,7 +158,8 @@ class BundleService {
       jsonFile.writeAsStringSync(jsonEncode(metadata));
 
       // zip the bundle
-      final zipFilePath = p.join(input.tempPath, "Stepstones_Export_${DateTime.now().millisecondsSinceEpoch}.stepstone");
+      final zipFilePath = input.outputPath ?? p.join(input.tempPath, "Stepstones_Export_${DateTime.now().millisecondsSinceEpoch}.stepstone");
+
       var encoder = ZipFileEncoder();
       encoder.create(zipFilePath, level: 0); // no compression
 
