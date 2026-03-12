@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import '../../data/app_database.dart';
 import '../services/media_action_service.dart';
 import 'universal_player.dart';
-import 'toolbar_button.dart';
 import 'package:provider/provider.dart';
 import '../controllers/gallery_controller.dart';
 
@@ -231,7 +230,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               // copy
-                              ToolbarButton(
+                              _ToolbarButton(
                                 icon: Icons.content_copy_rounded, 
                                 color: const Color(0xFFFFC600), 
                                 tooltip: "Copy to clipboard", 
@@ -241,7 +240,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                               const SizedBox(width: 8),
 
                               // edit tags
-                              ToolbarButton(
+                              _ToolbarButton(
                                 icon: Icons.edit_rounded,
                                 color: const Color(0xFF25BB00), 
                                 tooltip: "Edit Tags", 
@@ -251,7 +250,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                               const SizedBox(width: 8),
 
                               // delete
-                              ToolbarButton(
+                              _ToolbarButton(
                                 icon: Icons.delete_outline_rounded,
                                 color: const Color(0xFFFF5454), 
                                 tooltip: "Delete", 
@@ -331,4 +330,33 @@ Size _calculateOptimalSize(int dbWidth, int dbHeight, Size maxSize) {
   }
 
   return Size(w, h);
+}
+
+// private helper widget for media viewer's top-right toolbar
+class _ToolbarButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _ToolbarButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, color: color),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        hoverColor: color.withValues(alpha: 0.2),
+        padding: const EdgeInsets.all(8),
+      ),
+    );
+  }
 }

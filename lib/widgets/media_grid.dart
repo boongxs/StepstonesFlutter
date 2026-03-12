@@ -4,9 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
 import '../data/app_database.dart';
 import '../utils/min_extra_delegate.dart';
-import 'quadrant_button.dart';
 import '../services/media_action_service.dart';
-import 'selection_border_painter.dart';
 import '../controllers/session_controller.dart';
 import '../controllers/gallery_controller.dart';
 import '../controllers/selection_controller.dart';
@@ -58,7 +56,7 @@ class MediaGrid extends StatelessWidget {
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
         child: GridView.builder(
           controller: gallery.scrollController,
-          padding: const EdgeInsets.all(30),
+          padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
           itemCount: gallery.totalItemCount, // item count ensures scrollbar resizes properly
         
           // responsive layout
@@ -253,7 +251,7 @@ class _MediaCellState extends State<_MediaCell> {
               if (isSelected)
                 Positioned.fill(
                   child: CustomPaint(
-                    painter: SelectionBorderPainter(
+                    painter: _SelectionBorderPainter(
                       color: const Color(0xFF65c2b2),
                       cutoutRadius: 60.0,
                       borderRadius: 8.0,
@@ -306,12 +304,12 @@ class _MediaCellState extends State<_MediaCell> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          QuadrantButton( // copy
+                          _QuadrantButton( // copy
                             icon: Icons.content_copy_rounded,
                             hoverColor: const Color(0xFFFFC600),
                             onTap: () => MediaActionService.onCopy(context, widget.item!),
                           ),
-                          QuadrantButton( // edit
+                          _QuadrantButton( // edit
                             icon: Icons.edit_rounded,
                             hoverColor: const Color(0xFF25BB00),
                             onTap: () => MediaActionService.onEdit(context, widget.item!),
@@ -323,12 +321,12 @@ class _MediaCellState extends State<_MediaCell> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          QuadrantButton( // enlarge
+                          _QuadrantButton( // enlarge
                             icon: Icons.fullscreen_rounded,
                             hoverColor: const Color(0xFF4FAFFF),
                             onTap: () => MediaActionService.onEnlarge(context, widget.index),
                           ),
-                          QuadrantButton(
+                          _QuadrantButton(
                             icon: Icons.delete_outline_rounded,
                             hoverColor: const Color(0xFFFF5454),
                             onTap: () => MediaActionService.onDelete(context, widget.item!),
@@ -363,5 +361,102 @@ class _MediaCellState extends State<_MediaCell> {
     } catch (e) {
       return 0;
     }
+  }
+}
+
+// private CustomPainter for selection overlay of media cell
+class _SelectionBorderPainter extends CustomPainter {
+  final Color color;
+  final double cutoutRadius;
+  final double borderRadius;
+
+  _SelectionBorderPainter({
+    required this.color,
+    this.cutoutRadius = 60.0,
+    this.borderRadius = 8.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final path = Path()
+      ..moveTo(cutoutRadius, 0)
+      ..lineTo(w - borderRadius, 0)
+      ..arcToPoint(Offset(w, borderRadius), radius: Radius.circular(borderRadius))
+      ..lineTo(w, h - borderRadius)
+      ..arcToPoint(Offset(w - borderRadius, h), radius: Radius.circular(borderRadius))
+      ..lineTo(borderRadius, h)
+      ..arcToPoint(Offset(0, h - borderRadius), radius: Radius.circular(borderRadius))
+      ..lineTo(0, cutoutRadius)
+      ..arcToPoint(
+        Offset(cutoutRadius, 0),
+        radius: Radius.circular(cutoutRadius),
+        clockwise: false,
+    );
+
+    final fillPaint = Paint()
+      ..color = color.withValues(alpha: 0.6)
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawPath(path, fillPaint);
+
+    final borderPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    
+    canvas.drawPath(path, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SelectionBorderPainter oldDelegate) {
+    return color != oldDelegate.color || cutoutRadius != oldDelegate.cutoutRadius || borderRadius != oldDelegate.borderRadius;
+  }
+}
+
+// private helper widget for quadrant actions of a single media item
+class _QuadrantButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color hoverColor;
+
+  const _QuadrantButton({
+    required this.icon,
+    required this.onTap,
+    required this.hoverColor,
+  });
+
+  @override
+  State<_QuadrantButton> createState() => _QuadrantButtonState();
+}
+
+class _QuadrantButtonState extends State<_QuadrantButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      // MouseRegion tracks hover for this specific quadrant
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+
+        // GestureDetector handles clicks
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Center(
+            child: Icon(
+              widget.icon,
+              size: 48,
+              color: _isHovered ? widget.hoverColor : Colors.white,
+            )
+          )
+        )
+      )
+    );
   }
 }
