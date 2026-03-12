@@ -3,7 +3,6 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
-import '../services/logger_service.dart';
 
 class UniversalPlayer extends StatefulWidget {
   final String filePath;
@@ -66,22 +65,28 @@ class _UniversalPlayerState extends State<UniversalPlayer> {
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: (FocusNode node, KeyEvent event) {
+        // handle volume
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
           if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
             // get current volume, add 10, and clamp it between 0 and 100
             final newVol = (player.state.volume + 10.0).clamp(0.0, 100.0);
             player.setVolume(newVol);
-            LogService.i("Up arrow key");
 
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
             // get current volume, subtract 10, and clamp it between 0 and 100
             final newVol = (player.state.volume - 10.0).clamp(0.0, 100.0);
             player.setVolume(newVol);
-            LogService.i("Down arrow key");
 
             return KeyEventResult.handled;
           }
+        }
+
+        // handle play/pause
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
+          player.playOrPause();
+
+          return KeyEventResult.handled;
         }
 
         return KeyEventResult.ignored; // ignore all other keys
@@ -134,6 +139,9 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
   bool _isFinished = false;
   late StreamSubscription<bool> _completedSubscription;
 
+  bool _showControls = true;
+  Timer? _hideTimer;
+
   @override
   void initState() {
     super.initState();
@@ -144,12 +152,37 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
         });
       }
     });
+
+    _resetTimer();
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
   }
 
   @override
   void dispose() {
     _completedSubscription.cancel();
+    _hideTimer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     super.dispose();
+  }
+
+  // resets timer on any key press
+  bool _handleKeyEvent(KeyEvent event) {
+    _resetTimer();
+    return false;
+  }
+
+  // keeps controls visible and delays fade-out animation
+  void _resetTimer() {
+    if (!mounted) return;
+    setState(() => _showControls = true);
+    _hideTimer?.cancel();
+
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      // don't fade out if user is dragging progress bar
+      if (mounted && !_isDragging) {
+        setState(() => _showControls = false);
+      }
+    });
   }
 
   String _formatDuration(Duration duration) {
@@ -166,161 +199,182 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // tap to pause background
-        // fills all available space
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.player.playOrPause,
-          child: const SizedBox.expand(),
-        ),
-
-        // bottom control bar
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: GestureDetector(
-            // opaque makes this bottom container absorb all clicks
-            // prevents clicks on bottom bar to pass through to play/pause layer
-            behavior: HitTestBehavior.opaque,
-            onTap: () {},
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.7),
-              padding: const EdgeInsets.only(top: 4, bottom: 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // play/pause button
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: SizedBox(
-                      height: 50,
-                      child: StreamBuilder<Duration>(
-                        stream: widget.player.stream.position,
-                        builder: (context, positionSnapshot) {
-                          return StreamBuilder<Duration>(
-                            stream: widget.player.stream.duration,
-                            builder: (context, durationSnapshot) {
-                              final position = positionSnapshot.data ?? Duration.zero;
-                              final duration = durationSnapshot.data ?? Duration.zero;
-                              final max = duration.inMilliseconds.toDouble();
-                              final streamVal = _isFinished
-                                ? max
-                                : position.inMilliseconds.toDouble().clamp(0.0, max > 0 ? max : 1.0);
-                              final currentSliderValue = _isDragging ? _dragValue : streamVal;
-                    
-                              return SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7.0),
-                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 18.0),
+    return MouseRegion(
+      onHover: (_) => _resetTimer(),
+      child: Listener(
+        onPointerDown: (_) => _resetTimer(),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // tap to pause background
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                widget.player.playOrPause();
+                _resetTimer();
+              },
+              child: const SizedBox.expand(),
+            ),
+        
+            // bottom control bar
+            AnimatedOpacity(
+              opacity: _showControls ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 150),
+              child: IgnorePointer(
+                ignoring: !_showControls,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: GestureDetector(
+                    // opaque makes this bottom container absorb all clicks
+                    // prevents clicks on bottom bar to pass through to play/pause layer
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      padding: const EdgeInsets.only(top: 4, bottom: 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // play/pause button
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: SizedBox(
+                              height: 50,
+                              child: StreamBuilder<Duration>(
+                                stream: widget.player.stream.position,
+                                builder: (context, positionSnapshot) {
+                                  return StreamBuilder<Duration>(
+                                    stream: widget.player.stream.duration,
+                                    builder: (context, durationSnapshot) {
+                                      final position = positionSnapshot.data ?? Duration.zero;
+                                      final duration = durationSnapshot.data ?? Duration.zero;
+                                      final max = duration.inMilliseconds.toDouble();
+                                      final streamVal = _isFinished
+                                        ? max
+                                        : position.inMilliseconds.toDouble().clamp(0.0, max > 0 ? max : 1.0);
+                                      final currentSliderValue = _isDragging ? _dragValue : streamVal;
+                            
+                                      return SliderTheme(
+                                        data: SliderTheme.of(context).copyWith(
+                                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7.0),
+                                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 18.0),
+                                        ),
+                                        child: Slider(
+                                          value: currentSliderValue,
+                                          max: max > 0 ? max : 1.0,
+                                          activeColor: Colors.white,
+                                          inactiveColor: Colors.white.withValues(alpha: 0.3),
+                                          onChangeStart: (newVal) {
+                                            _wasPlayingBeforeDrag = widget.player.state.playing;
+                                            widget.player.pause();
+                                            setState(() {
+                                              _isDragging = true;
+                                              _dragValue = newVal;
+                                              _isFinished = false;
+                                            });
+                                            _resetTimer();
+                                          },
+                                                            
+                                          onChanged: (newVal) {
+                                            setState(() {
+                                              _dragValue = newVal;
+                                            });
+                                            widget.player.seek(Duration(milliseconds: newVal.toInt()));
+                                            _resetTimer();
+                                          },
+                                          onChangeEnd: (newVal) {
+                                            setState(() {
+                                              _isDragging = false;
+                                            });
+                                            widget.player.seek(Duration(milliseconds: newVal.toInt()));
+                                            if (_wasPlayingBeforeDrag) {
+                                              widget.player.play();
+                                            }
+                                            _resetTimer();
+                                          },
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        
+                          // play/pause & time indicator
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                // play/pause button
+                                StreamBuilder<bool>(
+                                  stream: widget.player.stream.playing,
+                                  builder: (context, snapshot) {
+                                    final isPlaying = snapshot.data ?? false;
+                                    final icon = _isFinished
+                                      ? Icons.replay_rounded
+                                      : (isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded);
+                            
+                                    return IconButton(
+                                      iconSize: 30.0,
+                                      icon: Icon(icon),
+                                      color: Colors.white,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () {
+                                        widget.player.playOrPause();
+                                        _resetTimer();
+                                      },
+                                    );
+                                  },
                                 ),
-                                child: Slider(
-                                  value: currentSliderValue,
-                                  max: max > 0 ? max : 1.0,
-                                  activeColor: Colors.white,
-                                  inactiveColor: Colors.white.withValues(alpha: 0.3),
-                                  onChangeStart: (newVal) {
-                                    _wasPlayingBeforeDrag = widget.player.state.playing;
-                                    widget.player.pause();
-                                    setState(() {
-                                      _isDragging = true;
-                                      _dragValue = newVal;
-                                      _isFinished = false;
-                                    });
-                                  },
-                                                    
-                                  onChanged: (newVal) {
-                                    setState(() {
-                                      _dragValue = newVal;
-                                    });
-                                    widget.player.seek(Duration(milliseconds: newVal.toInt()));
-                                  },
-                                  onChangeEnd: (newVal) {
-                                    setState(() {
-                                      _isDragging = false;
-                                    });
-                                    widget.player.seek(Duration(milliseconds: newVal.toInt()));
-                                    if (_wasPlayingBeforeDrag) {
-                                      widget.player.play();
-                                    }
+                        
+                                const SizedBox(width: 20),
+                        
+                                _VolumeControl(player: widget.player),
+                            
+                                const SizedBox(width: 20),
+                            
+                                // time indicator
+                                StreamBuilder<Duration>(
+                                  stream: widget.player.stream.position,
+                                  builder: (context, positionSnapshot) {
+                                    return StreamBuilder<Duration>(
+                                      stream: widget.player.stream.duration,
+                                      builder: (context, durationSnapshot) {
+                                        final duration = durationSnapshot.data ?? Duration.zero;
+                            
+                                        Duration position;
+                                        if (_isFinished) {
+                                          position = duration;
+                                        } else if (_isDragging) {
+                                          position = Duration(milliseconds: _dragValue.toInt());
+                                        } else {
+                                          position = positionSnapshot.data ?? Duration.zero;
+                                        }
+                            
+                                        return Text(
+                                          "${_formatDuration(position)} / ${_formatDuration(duration)}",
+                                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                                        );
+                                      },
+                                    );
                                   },
                                 ),
-                              );
-                            },
-                          );
-                        },
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-
-                  // play/pause & time indicator
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        // play/pause button
-                        StreamBuilder<bool>(
-                          stream: widget.player.stream.playing,
-                          builder: (context, snapshot) {
-                            final isPlaying = snapshot.data ?? false;
-                            final icon = _isFinished
-                              ? Icons.replay_rounded
-                              : (isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded);
-                    
-                            return IconButton(
-                              iconSize: 30.0,
-                              icon: Icon(icon),
-                              color: Colors.white,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: widget.player.playOrPause,
-                            );
-                          },
-                        ),
-
-                        const SizedBox(width: 20),
-
-                        _VolumeControl(player: widget.player),
-                    
-                        const SizedBox(width: 20),
-                    
-                        // time indicator
-                        StreamBuilder<Duration>(
-                          stream: widget.player.stream.position,
-                          builder: (context, positionSnapshot) {
-                            return StreamBuilder<Duration>(
-                              stream: widget.player.stream.duration,
-                              builder: (context, durationSnapshot) {
-                                final duration = durationSnapshot.data ?? Duration.zero;
-                    
-                                Duration position;
-                                if (_isFinished) {
-                                  position = duration;
-                                } else if (_isDragging) {
-                                  position = Duration(milliseconds: _dragValue.toInt());
-                                } else {
-                                  position = positionSnapshot.data ?? Duration.zero;
-                                }
-                    
-                                return Text(
-                                  "${_formatDuration(position)} / ${_formatDuration(duration)}",
-                                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -438,6 +492,9 @@ class _ActionIndicatorOverlayState extends State<ActionIndicatorOverlay> {
   bool? _lastPlaying;
   double? _lastVolume;
 
+  bool _isFirstPlayEvent = true;
+  bool _isFirstVolumeEvent = true;
+
   late StreamSubscription<bool> _playingSub;
   late StreamSubscription<double> _volumeSub;
 
@@ -452,6 +509,12 @@ class _ActionIndicatorOverlayState extends State<ActionIndicatorOverlay> {
     _playingSub = widget.player.stream.playing.listen((isPlaying) {
       if (_lastPlaying != isPlaying) {
         _lastPlaying = isPlaying;
+
+        if (_isFirstPlayEvent) {
+          _isFirstPlayEvent = false;
+          if (isPlaying) return;
+        }
+
         _showIndicator(
           isPlaying ? Icons.play_arrow_rounded : Icons.pause_rounded,
           null, // no text for play/pause
@@ -464,6 +527,11 @@ class _ActionIndicatorOverlayState extends State<ActionIndicatorOverlay> {
       if (_lastVolume != vol) {
         final isUp = vol > (_lastVolume ?? 0);
         _lastVolume = vol;
+
+        if (_isFirstVolumeEvent) {
+          _isFirstVolumeEvent = false;
+          return;
+        }
 
         IconData icon;
         if (vol == 0) {
