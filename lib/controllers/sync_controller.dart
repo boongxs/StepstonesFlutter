@@ -163,8 +163,15 @@ class SyncController extends ChangeNotifier {
       if (response.status == CopyResult.success) {
         try {
           final finalPath = p.join(folderPath, response.finalFileName!);
-          final type = await MediaHelper.inferFileType(finalPath);
+
+          var type = await MediaHelper.inferFileType(finalPath);
           final metadata = await MetadataHelper.extractMetadata(finalPath, type);
+
+          // check if video file type contains only audio
+          if (type == "video" && metadata.width == 0 && metadata.height == 0) {
+            type = "audio";
+            LogService.i("Audio-only video file detected. Reclassifying as audio: ${response.finalFileName}");
+          }
 
           // thumbnail generation on background thread
           final thumb = await ThumbnailHelper.generateThumbnail(
