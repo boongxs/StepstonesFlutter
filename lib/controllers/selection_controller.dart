@@ -62,7 +62,10 @@ class SelectionController extends ChangeNotifier {
 
     if (_areAllSelected) {
       if (_session.mediaFolderPath != null) {
-        final allIds = await _db.getAllIdsInFolder(_session.mediaFolderPath!);
+        final allIds = await _db.getAllIdsInFolder(
+          _session.mediaFolderPath!,
+          searchQuery: _gallery.currentSearchQuery,
+        );
         _selectedItemIds.addAll(allIds);
       }
     } else {

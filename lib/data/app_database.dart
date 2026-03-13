@@ -133,9 +133,24 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // get all IDs in the current folder
-  Future<List<int>> getAllIdsInFolder(String folderPath) {
-    final query = select(mediaItems)
-      ..where((t) => t.mediaFolderPath.equals(folderPath));
+  Future<List<int>> getAllIdsInFolder(String folderPath, {String? searchQuery}) {
+    var query = select(mediaItems);
+
+    query.where((t) {
+      Expression<bool> predicate = t.mediaFolderPath.equals(folderPath);
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final terms = searchQuery.trim().split(RegExp(r'\s+'));
+
+        predicate = predicate & t.tags.isNotNull();
+
+        for (final term in terms) {
+          predicate = predicate & t.tags.contains(term);
+        }
+      }
+
+      return predicate;
+    });
 
     return query.map((row) => row.id).get();
   }

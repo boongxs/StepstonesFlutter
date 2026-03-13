@@ -18,6 +18,7 @@ class GalleryController extends ChangeNotifier {
   final ScrollController scrollController = ScrollController();
 
   String? _currentSearchQuery = "";
+  String? get currentSearchQuery => _currentSearchQuery;
   Timer? _searchDebounceTimer;
 
   // --- delete animation state ---
