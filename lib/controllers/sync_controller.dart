@@ -38,6 +38,7 @@ class SyncController extends ChangeNotifier {
         _previousPath = session.mediaFolderPath;
 
         if (session.mediaFolderPath != null) {
+          gallery.clearSearch();
           performFullSync();
         }
       }

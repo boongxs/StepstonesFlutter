@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 class PrimarySearchBar extends StatefulWidget {
+  final TextEditingController controller;
   final ValueChanged<String>? onChanged;
 
   const PrimarySearchBar({
     super.key,
+    required this.controller,
     this.onChanged,
   });
 
@@ -54,6 +56,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
           alignment: Alignment.center,
           padding: const EdgeInsets.fromLTRB(10, 0, 10, 7),
           child: TextField(
+            controller: widget.controller,
             focusNode: _focusNode,
             style: const TextStyle(fontSize: 32, height: 1.0),
             textAlignVertical: TextAlignVertical.center,

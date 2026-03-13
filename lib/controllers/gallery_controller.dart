@@ -16,6 +16,7 @@ class GalleryController extends ChangeNotifier {
   int get totalItemCount => _totalItemCount;
 
   final ScrollController scrollController = ScrollController();
+  final TextEditingController searchController = TextEditingController();
 
   String? _currentSearchQuery = "";
   String? get currentSearchQuery => _currentSearchQuery;
@@ -247,9 +248,15 @@ class GalleryController extends ChangeNotifier {
     _pagesBeingFetched.clear();
   }
 
+  void clearSearch() {
+    searchController.clear();
+    _currentSearchQuery = "";
+  }
+
   @override
   void dispose() {
     scrollController.dispose();
+    searchController.dispose();
     super.dispose();
   }
 }

@@ -42,6 +42,7 @@ class MainScreen extends StatelessWidget {
 
                   // --- SEARCH BOX---
                   PrimarySearchBar(
+                    controller: context.read<GalleryController>().searchController,
                     onChanged: (value) {
                       context.read<GalleryController>().onSearchTextChanged(value);
                     },
