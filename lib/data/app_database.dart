@@ -63,9 +63,13 @@ class AppDatabase extends _$AppDatabase {
     Expression<bool> predicate = mediaItems.mediaFolderPath.equals(folderPath);
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
-      predicate = predicate &
-                  mediaItems.tags.isNotNull() &
-                  mediaItems.tags.contains(searchQuery);
+      final terms = searchQuery.trim().split(RegExp(r'\s+'));
+
+      predicate = predicate & mediaItems.tags.isNotNull();
+
+      for (final term in terms) {
+        predicate = predicate & mediaItems.tags.contains(term);
+      }
     }
 
     query.where(predicate);
@@ -97,9 +101,13 @@ class AppDatabase extends _$AppDatabase {
       Expression<bool> predicate = t.mediaFolderPath.equals(folderPath);
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        predicate = predicate &
-                    t.tags.isNotNull() &
-                    t.tags.contains(searchQuery);
+        final terms = searchQuery.trim().split(RegExp(r'\s+'));
+        
+        predicate = predicate & t.tags.isNotNull();
+
+        for (final term in terms) {
+          predicate = predicate & t.tags.contains(term);
+        }
       }
 
       return predicate;
