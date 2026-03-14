@@ -7,6 +7,7 @@ import '../widgets/media_viewer_dialog.dart';
 import '../utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import '../controllers/gallery_controller.dart';
+import '../locator.dart';
 
 class MediaActionService {
   MediaActionService._();
@@ -31,12 +32,16 @@ class MediaActionService {
     // grab controller before opening dialog
     final gallery = context.read<GalleryController>();
 
+    // fetch tags from database before opening dialog
+    final db = getIt<AppDatabase>();
+    final tagsString = await db.getTagsForMediaItem(item.id);
+
     // open dialog
     final newTags = await showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) => EditTagsDialog(
-        initialTags: item.tags ?? "", // pass existing tags or empty
+        initialTags: tagsString, // pass existing tags or empty
       ),
     );
 

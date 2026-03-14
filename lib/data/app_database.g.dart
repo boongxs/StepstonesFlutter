@@ -78,15 +78,6 @@ class $MediaItemsTable extends MediaItems
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
-  @override
-  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
-    'tags',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _thumbnailPathMeta = const VerificationMeta(
     'thumbnailPath',
   );
@@ -137,7 +128,6 @@ class $MediaItemsTable extends MediaItems
     mediaFolderPath,
     originalFileName,
     fileType,
-    tags,
     thumbnailPath,
     duration,
     width,
@@ -207,12 +197,6 @@ class $MediaItemsTable extends MediaItems
     } else if (isInserting) {
       context.missing(_fileTypeMeta);
     }
-    if (data.containsKey('tags')) {
-      context.handle(
-        _tagsMeta,
-        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
-      );
-    }
     if (data.containsKey('thumbnail_path')) {
       context.handle(
         _thumbnailPathMeta,
@@ -277,10 +261,6 @@ class $MediaItemsTable extends MediaItems
         DriftSqlType.string,
         data['${effectivePrefix}file_type'],
       )!,
-      tags: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}tags'],
-      ),
       thumbnailPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}thumbnail_path'],
@@ -313,7 +293,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
   final String mediaFolderPath;
   final String originalFileName;
   final String fileType;
-  final String? tags;
   final String? thumbnailPath;
   final int? duration;
   final int width;
@@ -325,7 +304,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     required this.mediaFolderPath,
     required this.originalFileName,
     required this.fileType,
-    this.tags,
     this.thumbnailPath,
     this.duration,
     required this.width,
@@ -340,9 +318,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     map['media_folder_path'] = Variable<String>(mediaFolderPath);
     map['original_file_name'] = Variable<String>(originalFileName);
     map['file_type'] = Variable<String>(fileType);
-    if (!nullToAbsent || tags != null) {
-      map['tags'] = Variable<String>(tags);
-    }
     if (!nullToAbsent || thumbnailPath != null) {
       map['thumbnail_path'] = Variable<String>(thumbnailPath);
     }
@@ -362,7 +337,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       mediaFolderPath: Value(mediaFolderPath),
       originalFileName: Value(originalFileName),
       fileType: Value(fileType),
-      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
       thumbnailPath: thumbnailPath == null && nullToAbsent
           ? const Value.absent()
           : Value(thumbnailPath),
@@ -386,7 +360,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       mediaFolderPath: serializer.fromJson<String>(json['mediaFolderPath']),
       originalFileName: serializer.fromJson<String>(json['originalFileName']),
       fileType: serializer.fromJson<String>(json['fileType']),
-      tags: serializer.fromJson<String?>(json['tags']),
       thumbnailPath: serializer.fromJson<String?>(json['thumbnailPath']),
       duration: serializer.fromJson<int?>(json['duration']),
       width: serializer.fromJson<int>(json['width']),
@@ -403,7 +376,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       'mediaFolderPath': serializer.toJson<String>(mediaFolderPath),
       'originalFileName': serializer.toJson<String>(originalFileName),
       'fileType': serializer.toJson<String>(fileType),
-      'tags': serializer.toJson<String?>(tags),
       'thumbnailPath': serializer.toJson<String?>(thumbnailPath),
       'duration': serializer.toJson<int?>(duration),
       'width': serializer.toJson<int>(width),
@@ -418,7 +390,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     String? mediaFolderPath,
     String? originalFileName,
     String? fileType,
-    Value<String?> tags = const Value.absent(),
     Value<String?> thumbnailPath = const Value.absent(),
     Value<int?> duration = const Value.absent(),
     int? width,
@@ -430,7 +401,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     mediaFolderPath: mediaFolderPath ?? this.mediaFolderPath,
     originalFileName: originalFileName ?? this.originalFileName,
     fileType: fileType ?? this.fileType,
-    tags: tags.present ? tags.value : this.tags,
     thumbnailPath: thumbnailPath.present
         ? thumbnailPath.value
         : this.thumbnailPath,
@@ -452,7 +422,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           ? data.originalFileName.value
           : this.originalFileName,
       fileType: data.fileType.present ? data.fileType.value : this.fileType,
-      tags: data.tags.present ? data.tags.value : this.tags,
       thumbnailPath: data.thumbnailPath.present
           ? data.thumbnailPath.value
           : this.thumbnailPath,
@@ -471,7 +440,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           ..write('mediaFolderPath: $mediaFolderPath, ')
           ..write('originalFileName: $originalFileName, ')
           ..write('fileType: $fileType, ')
-          ..write('tags: $tags, ')
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('duration: $duration, ')
           ..write('width: $width, ')
@@ -488,7 +456,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     mediaFolderPath,
     originalFileName,
     fileType,
-    tags,
     thumbnailPath,
     duration,
     width,
@@ -504,7 +471,6 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           other.mediaFolderPath == this.mediaFolderPath &&
           other.originalFileName == this.originalFileName &&
           other.fileType == this.fileType &&
-          other.tags == this.tags &&
           other.thumbnailPath == this.thumbnailPath &&
           other.duration == this.duration &&
           other.width == this.width &&
@@ -518,7 +484,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
   final Value<String> mediaFolderPath;
   final Value<String> originalFileName;
   final Value<String> fileType;
-  final Value<String?> tags;
   final Value<String?> thumbnailPath;
   final Value<int?> duration;
   final Value<int> width;
@@ -530,7 +495,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     this.mediaFolderPath = const Value.absent(),
     this.originalFileName = const Value.absent(),
     this.fileType = const Value.absent(),
-    this.tags = const Value.absent(),
     this.thumbnailPath = const Value.absent(),
     this.duration = const Value.absent(),
     this.width = const Value.absent(),
@@ -543,7 +507,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     required String mediaFolderPath,
     required String originalFileName,
     required String fileType,
-    this.tags = const Value.absent(),
     this.thumbnailPath = const Value.absent(),
     this.duration = const Value.absent(),
     this.width = const Value.absent(),
@@ -560,7 +523,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Expression<String>? mediaFolderPath,
     Expression<String>? originalFileName,
     Expression<String>? fileType,
-    Expression<String>? tags,
     Expression<String>? thumbnailPath,
     Expression<int>? duration,
     Expression<int>? width,
@@ -573,7 +535,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       if (mediaFolderPath != null) 'media_folder_path': mediaFolderPath,
       if (originalFileName != null) 'original_file_name': originalFileName,
       if (fileType != null) 'file_type': fileType,
-      if (tags != null) 'tags': tags,
       if (thumbnailPath != null) 'thumbnail_path': thumbnailPath,
       if (duration != null) 'duration': duration,
       if (width != null) 'width': width,
@@ -588,7 +549,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Value<String>? mediaFolderPath,
     Value<String>? originalFileName,
     Value<String>? fileType,
-    Value<String?>? tags,
     Value<String?>? thumbnailPath,
     Value<int?>? duration,
     Value<int>? width,
@@ -601,7 +561,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       mediaFolderPath: mediaFolderPath ?? this.mediaFolderPath,
       originalFileName: originalFileName ?? this.originalFileName,
       fileType: fileType ?? this.fileType,
-      tags: tags ?? this.tags,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
       duration: duration ?? this.duration,
       width: width ?? this.width,
@@ -630,9 +589,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     if (fileType.present) {
       map['file_type'] = Variable<String>(fileType.value);
     }
-    if (tags.present) {
-      map['tags'] = Variable<String>(tags.value);
-    }
     if (thumbnailPath.present) {
       map['thumbnail_path'] = Variable<String>(thumbnailPath.value);
     }
@@ -657,7 +613,6 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
           ..write('mediaFolderPath: $mediaFolderPath, ')
           ..write('originalFileName: $originalFileName, ')
           ..write('fileType: $fileType, ')
-          ..write('tags: $tags, ')
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('duration: $duration, ')
           ..write('width: $width, ')
@@ -667,15 +622,422 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
   }
 }
 
+class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tags';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Tag> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Tag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Tag(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+    );
+  }
+
+  @override
+  $TagsTable createAlias(String alias) {
+    return $TagsTable(attachedDatabase, alias);
+  }
+}
+
+class Tag extends DataClass implements Insertable<Tag> {
+  final int id;
+  final String name;
+  const Tag({required this.id, required this.name});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    return map;
+  }
+
+  TagsCompanion toCompanion(bool nullToAbsent) {
+    return TagsCompanion(id: Value(id), name: Value(name));
+  }
+
+  factory Tag.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Tag(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+    };
+  }
+
+  Tag copyWith({int? id, String? name}) =>
+      Tag(id: id ?? this.id, name: name ?? this.name);
+  Tag copyWithCompanion(TagsCompanion data) {
+    return Tag(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Tag(')
+          ..write('id: $id, ')
+          ..write('name: $name')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Tag && other.id == this.id && other.name == this.name);
+}
+
+class TagsCompanion extends UpdateCompanion<Tag> {
+  final Value<int> id;
+  final Value<String> name;
+  const TagsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+  });
+  TagsCompanion.insert({this.id = const Value.absent(), required String name})
+    : name = Value(name);
+  static Insertable<Tag> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+    });
+  }
+
+  TagsCompanion copyWith({Value<int>? id, Value<String>? name}) {
+    return TagsCompanion(id: id ?? this.id, name: name ?? this.name);
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TagsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MediaTagsTable extends MediaTags
+    with TableInfo<$MediaTagsTable, MediaTag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MediaTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _mediaIdMeta = const VerificationMeta(
+    'mediaId',
+  );
+  @override
+  late final GeneratedColumn<int> mediaId = GeneratedColumn<int>(
+    'media_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES media_items (id)',
+    ),
+  );
+  static const VerificationMeta _tagIdMeta = const VerificationMeta('tagId');
+  @override
+  late final GeneratedColumn<int> tagId = GeneratedColumn<int>(
+    'tag_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tags (id)',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [mediaId, tagId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'media_tags';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MediaTag> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('media_id')) {
+      context.handle(
+        _mediaIdMeta,
+        mediaId.isAcceptableOrUnknown(data['media_id']!, _mediaIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mediaIdMeta);
+    }
+    if (data.containsKey('tag_id')) {
+      context.handle(
+        _tagIdMeta,
+        tagId.isAcceptableOrUnknown(data['tag_id']!, _tagIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tagIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {mediaId, tagId};
+  @override
+  MediaTag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MediaTag(
+      mediaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}media_id'],
+      )!,
+      tagId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tag_id'],
+      )!,
+    );
+  }
+
+  @override
+  $MediaTagsTable createAlias(String alias) {
+    return $MediaTagsTable(attachedDatabase, alias);
+  }
+}
+
+class MediaTag extends DataClass implements Insertable<MediaTag> {
+  final int mediaId;
+  final int tagId;
+  const MediaTag({required this.mediaId, required this.tagId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['media_id'] = Variable<int>(mediaId);
+    map['tag_id'] = Variable<int>(tagId);
+    return map;
+  }
+
+  MediaTagsCompanion toCompanion(bool nullToAbsent) {
+    return MediaTagsCompanion(mediaId: Value(mediaId), tagId: Value(tagId));
+  }
+
+  factory MediaTag.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MediaTag(
+      mediaId: serializer.fromJson<int>(json['mediaId']),
+      tagId: serializer.fromJson<int>(json['tagId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'mediaId': serializer.toJson<int>(mediaId),
+      'tagId': serializer.toJson<int>(tagId),
+    };
+  }
+
+  MediaTag copyWith({int? mediaId, int? tagId}) =>
+      MediaTag(mediaId: mediaId ?? this.mediaId, tagId: tagId ?? this.tagId);
+  MediaTag copyWithCompanion(MediaTagsCompanion data) {
+    return MediaTag(
+      mediaId: data.mediaId.present ? data.mediaId.value : this.mediaId,
+      tagId: data.tagId.present ? data.tagId.value : this.tagId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MediaTag(')
+          ..write('mediaId: $mediaId, ')
+          ..write('tagId: $tagId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(mediaId, tagId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MediaTag &&
+          other.mediaId == this.mediaId &&
+          other.tagId == this.tagId);
+}
+
+class MediaTagsCompanion extends UpdateCompanion<MediaTag> {
+  final Value<int> mediaId;
+  final Value<int> tagId;
+  final Value<int> rowid;
+  const MediaTagsCompanion({
+    this.mediaId = const Value.absent(),
+    this.tagId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MediaTagsCompanion.insert({
+    required int mediaId,
+    required int tagId,
+    this.rowid = const Value.absent(),
+  }) : mediaId = Value(mediaId),
+       tagId = Value(tagId);
+  static Insertable<MediaTag> custom({
+    Expression<int>? mediaId,
+    Expression<int>? tagId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (mediaId != null) 'media_id': mediaId,
+      if (tagId != null) 'tag_id': tagId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MediaTagsCompanion copyWith({
+    Value<int>? mediaId,
+    Value<int>? tagId,
+    Value<int>? rowid,
+  }) {
+    return MediaTagsCompanion(
+      mediaId: mediaId ?? this.mediaId,
+      tagId: tagId ?? this.tagId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (mediaId.present) {
+      map['media_id'] = Variable<int>(mediaId.value);
+    }
+    if (tagId.present) {
+      map['tag_id'] = Variable<int>(tagId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MediaTagsCompanion(')
+          ..write('mediaId: $mediaId, ')
+          ..write('tagId: $tagId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $MediaItemsTable mediaItems = $MediaItemsTable(this);
+  late final $TagsTable tags = $TagsTable(this);
+  late final $MediaTagsTable mediaTags = $MediaTagsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [mediaItems];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    mediaItems,
+    tags,
+    mediaTags,
+  ];
 }
 
 typedef $$MediaItemsTableCreateCompanionBuilder =
@@ -686,7 +1048,6 @@ typedef $$MediaItemsTableCreateCompanionBuilder =
       required String mediaFolderPath,
       required String originalFileName,
       required String fileType,
-      Value<String?> tags,
       Value<String?> thumbnailPath,
       Value<int?> duration,
       Value<int> width,
@@ -700,12 +1061,34 @@ typedef $$MediaItemsTableUpdateCompanionBuilder =
       Value<String> mediaFolderPath,
       Value<String> originalFileName,
       Value<String> fileType,
-      Value<String?> tags,
       Value<String?> thumbnailPath,
       Value<int?> duration,
       Value<int> width,
       Value<int> height,
     });
+
+final class $$MediaItemsTableReferences
+    extends BaseReferences<_$AppDatabase, $MediaItemsTable, MediaItem> {
+  $$MediaItemsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$MediaTagsTable, List<MediaTag>>
+  _mediaTagsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.mediaTags,
+    aliasName: $_aliasNameGenerator(db.mediaItems.id, db.mediaTags.mediaId),
+  );
+
+  $$MediaTagsTableProcessedTableManager get mediaTagsRefs {
+    final manager = $$MediaTagsTableTableManager(
+      $_db,
+      $_db.mediaTags,
+    ).filter((f) => f.mediaId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_mediaTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$MediaItemsTableFilterComposer
     extends Composer<_$AppDatabase, $MediaItemsTable> {
@@ -746,11 +1129,6 @@ class $$MediaItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get tags => $composableBuilder(
-    column: $table.tags,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get thumbnailPath => $composableBuilder(
     column: $table.thumbnailPath,
     builder: (column) => ColumnFilters(column),
@@ -770,6 +1148,31 @@ class $$MediaItemsTableFilterComposer
     column: $table.height,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> mediaTagsRefs(
+    Expression<bool> Function($$MediaTagsTableFilterComposer f) f,
+  ) {
+    final $$MediaTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mediaTags,
+      getReferencedColumn: (t) => t.mediaId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.mediaTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$MediaItemsTableOrderingComposer
@@ -808,11 +1211,6 @@ class $$MediaItemsTableOrderingComposer
 
   ColumnOrderings<String> get fileType => $composableBuilder(
     column: $table.fileType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get tags => $composableBuilder(
-    column: $table.tags,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -870,9 +1268,6 @@ class $$MediaItemsTableAnnotationComposer
   GeneratedColumn<String> get fileType =>
       $composableBuilder(column: $table.fileType, builder: (column) => column);
 
-  GeneratedColumn<String> get tags =>
-      $composableBuilder(column: $table.tags, builder: (column) => column);
-
   GeneratedColumn<String> get thumbnailPath => $composableBuilder(
     column: $table.thumbnailPath,
     builder: (column) => column,
@@ -886,6 +1281,31 @@ class $$MediaItemsTableAnnotationComposer
 
   GeneratedColumn<int> get height =>
       $composableBuilder(column: $table.height, builder: (column) => column);
+
+  Expression<T> mediaTagsRefs<T extends Object>(
+    Expression<T> Function($$MediaTagsTableAnnotationComposer a) f,
+  ) {
+    final $$MediaTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mediaTags,
+      getReferencedColumn: (t) => t.mediaId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mediaTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$MediaItemsTableTableManager
@@ -899,12 +1319,9 @@ class $$MediaItemsTableTableManager
           $$MediaItemsTableAnnotationComposer,
           $$MediaItemsTableCreateCompanionBuilder,
           $$MediaItemsTableUpdateCompanionBuilder,
-          (
-            MediaItem,
-            BaseReferences<_$AppDatabase, $MediaItemsTable, MediaItem>,
-          ),
+          (MediaItem, $$MediaItemsTableReferences),
           MediaItem,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool mediaTagsRefs})
         > {
   $$MediaItemsTableTableManager(_$AppDatabase db, $MediaItemsTable table)
     : super(
@@ -925,7 +1342,6 @@ class $$MediaItemsTableTableManager
                 Value<String> mediaFolderPath = const Value.absent(),
                 Value<String> originalFileName = const Value.absent(),
                 Value<String> fileType = const Value.absent(),
-                Value<String?> tags = const Value.absent(),
                 Value<String?> thumbnailPath = const Value.absent(),
                 Value<int?> duration = const Value.absent(),
                 Value<int> width = const Value.absent(),
@@ -937,7 +1353,6 @@ class $$MediaItemsTableTableManager
                 mediaFolderPath: mediaFolderPath,
                 originalFileName: originalFileName,
                 fileType: fileType,
-                tags: tags,
                 thumbnailPath: thumbnailPath,
                 duration: duration,
                 width: width,
@@ -951,7 +1366,6 @@ class $$MediaItemsTableTableManager
                 required String mediaFolderPath,
                 required String originalFileName,
                 required String fileType,
-                Value<String?> tags = const Value.absent(),
                 Value<String?> thumbnailPath = const Value.absent(),
                 Value<int?> duration = const Value.absent(),
                 Value<int> width = const Value.absent(),
@@ -963,16 +1377,49 @@ class $$MediaItemsTableTableManager
                 mediaFolderPath: mediaFolderPath,
                 originalFileName: originalFileName,
                 fileType: fileType,
-                tags: tags,
                 thumbnailPath: thumbnailPath,
                 duration: duration,
                 width: width,
                 height: height,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MediaItemsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({mediaTagsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (mediaTagsRefs) db.mediaTags],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (mediaTagsRefs)
+                    await $_getPrefetchedData<
+                      MediaItem,
+                      $MediaItemsTable,
+                      MediaTag
+                    >(
+                      currentTable: table,
+                      referencedTable: $$MediaItemsTableReferences
+                          ._mediaTagsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$MediaItemsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).mediaTagsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.mediaId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -987,9 +1434,569 @@ typedef $$MediaItemsTableProcessedTableManager =
       $$MediaItemsTableAnnotationComposer,
       $$MediaItemsTableCreateCompanionBuilder,
       $$MediaItemsTableUpdateCompanionBuilder,
-      (MediaItem, BaseReferences<_$AppDatabase, $MediaItemsTable, MediaItem>),
+      (MediaItem, $$MediaItemsTableReferences),
       MediaItem,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool mediaTagsRefs})
+    >;
+typedef $$TagsTableCreateCompanionBuilder =
+    TagsCompanion Function({Value<int> id, required String name});
+typedef $$TagsTableUpdateCompanionBuilder =
+    TagsCompanion Function({Value<int> id, Value<String> name});
+
+final class $$TagsTableReferences
+    extends BaseReferences<_$AppDatabase, $TagsTable, Tag> {
+  $$TagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$MediaTagsTable, List<MediaTag>>
+  _mediaTagsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.mediaTags,
+    aliasName: $_aliasNameGenerator(db.tags.id, db.mediaTags.tagId),
+  );
+
+  $$MediaTagsTableProcessedTableManager get mediaTagsRefs {
+    final manager = $$MediaTagsTableTableManager(
+      $_db,
+      $_db.mediaTags,
+    ).filter((f) => f.tagId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_mediaTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$TagsTableFilterComposer extends Composer<_$AppDatabase, $TagsTable> {
+  $$TagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> mediaTagsRefs(
+    Expression<bool> Function($$MediaTagsTableFilterComposer f) f,
+  ) {
+    final $$MediaTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mediaTags,
+      getReferencedColumn: (t) => t.tagId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.mediaTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$TagsTableOrderingComposer extends Composer<_$AppDatabase, $TagsTable> {
+  $$TagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TagsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TagsTable> {
+  $$TagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  Expression<T> mediaTagsRefs<T extends Object>(
+    Expression<T> Function($$MediaTagsTableAnnotationComposer a) f,
+  ) {
+    final $$MediaTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mediaTags,
+      getReferencedColumn: (t) => t.tagId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mediaTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$TagsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TagsTable,
+          Tag,
+          $$TagsTableFilterComposer,
+          $$TagsTableOrderingComposer,
+          $$TagsTableAnnotationComposer,
+          $$TagsTableCreateCompanionBuilder,
+          $$TagsTableUpdateCompanionBuilder,
+          (Tag, $$TagsTableReferences),
+          Tag,
+          PrefetchHooks Function({bool mediaTagsRefs})
+        > {
+  $$TagsTableTableManager(_$AppDatabase db, $TagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+              }) => TagsCompanion(id: id, name: name),
+          createCompanionCallback:
+              ({Value<int> id = const Value.absent(), required String name}) =>
+                  TagsCompanion.insert(id: id, name: name),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $$TagsTableReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback: ({mediaTagsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (mediaTagsRefs) db.mediaTags],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (mediaTagsRefs)
+                    await $_getPrefetchedData<Tag, $TagsTable, MediaTag>(
+                      currentTable: table,
+                      referencedTable: $$TagsTableReferences
+                          ._mediaTagsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$TagsTableReferences(db, table, p0).mediaTagsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.tagId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TagsTable,
+      Tag,
+      $$TagsTableFilterComposer,
+      $$TagsTableOrderingComposer,
+      $$TagsTableAnnotationComposer,
+      $$TagsTableCreateCompanionBuilder,
+      $$TagsTableUpdateCompanionBuilder,
+      (Tag, $$TagsTableReferences),
+      Tag,
+      PrefetchHooks Function({bool mediaTagsRefs})
+    >;
+typedef $$MediaTagsTableCreateCompanionBuilder =
+    MediaTagsCompanion Function({
+      required int mediaId,
+      required int tagId,
+      Value<int> rowid,
+    });
+typedef $$MediaTagsTableUpdateCompanionBuilder =
+    MediaTagsCompanion Function({
+      Value<int> mediaId,
+      Value<int> tagId,
+      Value<int> rowid,
+    });
+
+final class $$MediaTagsTableReferences
+    extends BaseReferences<_$AppDatabase, $MediaTagsTable, MediaTag> {
+  $$MediaTagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $MediaItemsTable _mediaIdTable(_$AppDatabase db) =>
+      db.mediaItems.createAlias(
+        $_aliasNameGenerator(db.mediaTags.mediaId, db.mediaItems.id),
+      );
+
+  $$MediaItemsTableProcessedTableManager get mediaId {
+    final $_column = $_itemColumn<int>('media_id')!;
+
+    final manager = $$MediaItemsTableTableManager(
+      $_db,
+      $_db.mediaItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_mediaIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $TagsTable _tagIdTable(_$AppDatabase db) =>
+      db.tags.createAlias($_aliasNameGenerator(db.mediaTags.tagId, db.tags.id));
+
+  $$TagsTableProcessedTableManager get tagId {
+    final $_column = $_itemColumn<int>('tag_id')!;
+
+    final manager = $$TagsTableTableManager(
+      $_db,
+      $_db.tags,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_tagIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$MediaTagsTableFilterComposer
+    extends Composer<_$AppDatabase, $MediaTagsTable> {
+  $$MediaTagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$MediaItemsTableFilterComposer get mediaId {
+    final $$MediaItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.mediaId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableFilterComposer get tagId {
+    final $$TagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableFilterComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MediaTagsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MediaTagsTable> {
+  $$MediaTagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$MediaItemsTableOrderingComposer get mediaId {
+    final $$MediaItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.mediaId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableOrderingComposer get tagId {
+    final $$TagsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableOrderingComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MediaTagsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MediaTagsTable> {
+  $$MediaTagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$MediaItemsTableAnnotationComposer get mediaId {
+    final $$MediaItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.mediaId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableAnnotationComposer get tagId {
+    final $$TagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MediaTagsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MediaTagsTable,
+          MediaTag,
+          $$MediaTagsTableFilterComposer,
+          $$MediaTagsTableOrderingComposer,
+          $$MediaTagsTableAnnotationComposer,
+          $$MediaTagsTableCreateCompanionBuilder,
+          $$MediaTagsTableUpdateCompanionBuilder,
+          (MediaTag, $$MediaTagsTableReferences),
+          MediaTag,
+          PrefetchHooks Function({bool mediaId, bool tagId})
+        > {
+  $$MediaTagsTableTableManager(_$AppDatabase db, $MediaTagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MediaTagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MediaTagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MediaTagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> mediaId = const Value.absent(),
+                Value<int> tagId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MediaTagsCompanion(
+                mediaId: mediaId,
+                tagId: tagId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int mediaId,
+                required int tagId,
+                Value<int> rowid = const Value.absent(),
+              }) => MediaTagsCompanion.insert(
+                mediaId: mediaId,
+                tagId: tagId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MediaTagsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({mediaId = false, tagId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (mediaId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.mediaId,
+                                referencedTable: $$MediaTagsTableReferences
+                                    ._mediaIdTable(db),
+                                referencedColumn: $$MediaTagsTableReferences
+                                    ._mediaIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (tagId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.tagId,
+                                referencedTable: $$MediaTagsTableReferences
+                                    ._tagIdTable(db),
+                                referencedColumn: $$MediaTagsTableReferences
+                                    ._tagIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$MediaTagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MediaTagsTable,
+      MediaTag,
+      $$MediaTagsTableFilterComposer,
+      $$MediaTagsTableOrderingComposer,
+      $$MediaTagsTableAnnotationComposer,
+      $$MediaTagsTableCreateCompanionBuilder,
+      $$MediaTagsTableUpdateCompanionBuilder,
+      (MediaTag, $$MediaTagsTableReferences),
+      MediaTag,
+      PrefetchHooks Function({bool mediaId, bool tagId})
     >;
 
 class $AppDatabaseManager {
@@ -997,4 +2004,7 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$MediaItemsTableTableManager get mediaItems =>
       $$MediaItemsTableTableManager(_db, _db.mediaItems);
+  $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
+  $$MediaTagsTableTableManager get mediaTags =>
+      $$MediaTagsTableTableManager(_db, _db.mediaTags);
 }

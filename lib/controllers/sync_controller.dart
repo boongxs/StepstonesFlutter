@@ -474,11 +474,15 @@ class SyncController extends ChangeNotifier {
             width: drift.Value(data["width"]),
             height: drift.Value(data["height"]),
             duration: drift.Value(data["duration"]),
-            tags: drift.Value(data["tags"]),
             thumbnailPath: drift.Value(thumbPath),
           );
 
-          await db.insertMediaItem(companion);
+          final insertedId = await db.insertMediaItem(companion);
+
+          // insert tags
+          if (data["tags"] != null && data["tags"].toString().isNotEmpty) {
+            await db.updateMediaTags(insertedId, data["tags"]);
+          }
         } catch (e) {
           final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
           if (isDuplicate) {

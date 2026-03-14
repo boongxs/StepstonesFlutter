@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../data/app_database.dart';
 import 'logger_service.dart';
 import '../constants.dart';
+import '../locator.dart';
 
 // to pass data into the isolate
 class _BundleInput {
@@ -38,16 +39,23 @@ class BundleService {
     if (items.isEmpty) return null;
 
     // prepare data for isolate
-    final rawItems = items.map((item) => {
-      "hashedFileName": item.hashedFileName,
-      "mediaFolderPath": item.mediaFolderPath,
-      "tags": item.tags,
-      "thumbnailPath": item.thumbnailPath,
-      "fileType": item.fileType,
-      "width": item.width,
-      "height": item.height,
-      "duration": item.duration,
-    }).toList();
+    final db = getIt<AppDatabase>();
+    final rawItems = <Map<String, dynamic>>[];
+
+    for (var item in items) {
+      final tagsString = await db.getTagsForMediaItem(item.id);
+
+      rawItems.add({
+        "hashedFileName": item.hashedFileName,
+        "mediaFolderPath": item.mediaFolderPath,
+        "tags": tagsString,
+        "thumbnailPath": item.thumbnailPath,
+        "fileType": item.fileType,
+        "width": item.width,
+        "height": item.height,
+        "duration": item.duration,
+      });
+    }
 
     final tempDir = await getTemporaryDirectory();
     final appDir = AppConstants.appSupportPath;
