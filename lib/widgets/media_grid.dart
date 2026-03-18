@@ -16,8 +16,9 @@ class MediaGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionController>();
-    final gallery = context.watch<GalleryController>();
     final status = context.watch<StatusCardProvider>();
+    final totalItemCount = context.select<GalleryController, int>((g) => g.totalItemCount); // only rebuild grid if total item count changes
+    final gallery = context.read<GalleryController>(); // to pass to scrollController but doesn't cause rebuild
 
     // empty state
     if (session.mediaFolderPath == null) {
@@ -28,7 +29,7 @@ class MediaGrid extends StatelessWidget {
       );
     }
 
-    if (gallery.totalItemCount == 0 && !status.isLoading) {
+    if (totalItemCount == 0 && !status.isLoading) {
       return const Center(
         child: Text(
           "No media items found"
@@ -57,7 +58,7 @@ class MediaGrid extends StatelessWidget {
         child: GridView.builder(
           controller: gallery.scrollController,
           padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-          itemCount: gallery.totalItemCount, // item count ensures scrollbar resizes properly
+          itemCount: totalItemCount, // item count ensures scrollbar resizes properly
         
           // responsive layout
           gridDelegate: const SliverGridDelegateWithMinCrossAxisExtent(
@@ -68,24 +69,26 @@ class MediaGrid extends StatelessWidget {
           ),
         
           itemBuilder: (context, index) {
-            // ask provider for data, if null trigger fetch
-            final MediaItem? item = gallery.getItem(index);
-            final isDeleting = item != null && gallery.isItemAnimating(item.id);
-        
-            return AnimatedScale(
-              scale: isDeleting ? 0.0 : 1.0,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInBack,
-              child: AnimatedOpacity(
-                opacity: isDeleting ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: _MediaCell(
-                  key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
-                  item: item, 
-                  index: index,
-                  thumbBaseDir: thumbBaseDir
-                ),
-              ),
+            return Selector<GalleryController, MediaItem?>(
+              selector: (context, galleryController) => galleryController.getItem(index),
+              builder: (context, item, child) {
+                final isDeleting = item != null && context.read<GalleryController>().isItemAnimating(item.id);
+                return AnimatedScale(
+                  scale: isDeleting ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInBack,
+                  child: AnimatedOpacity(
+                    opacity: isDeleting ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: _MediaCell(
+                      key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
+                      item: item, 
+                      index: index,
+                      thumbBaseDir: thumbBaseDir
+                    ),
+                  ),
+                );
+              }
             );
           },
         ),
@@ -126,16 +129,15 @@ class _MediaCellState extends State<_MediaCell> {
       );
     }
 
-    // access provider for selection mode
-    final selection = context.watch<SelectionController>();
-    final isSelectionMode = selection.isSelectionMode;
-    final isSelected = selection.isItemSelected(widget.item!.id);
+    // only rebuild this cell if its selection state changes
+    final isSelectionMode = context.select<SelectionController, bool>((s) => s.isSelectionMode);
+    final isSelected = context.select<SelectionController, bool>((s) => s.isItemSelected(widget.item!.id));
 
     // logic extraction
     final hasThumb = widget.item!.thumbnailPath != null && widget.thumbBaseDir != null;
     final fullThumbPath = hasThumb ? p.join(widget.thumbBaseDir!, widget.item!.thumbnailPath!) : null;
-    final isAudio = widget.item!.fileType == 'audio';
-    final isVideo = widget.item!.fileType == 'video';
+    final isAudio = widget.item!.fileType == "audio";
+    final isVideo = widget.item!.fileType == "video";
 
     Widget baseContent = Container(
       clipBehavior: Clip.antiAlias,
@@ -194,7 +196,7 @@ class _MediaCellState extends State<_MediaCell> {
               ),
             ),
           
-          if (widget.item!.fileType == 'gif')
+          if (widget.item!.fileType == "gif")
             Positioned(
               top: 8,
               right: 8,
@@ -223,7 +225,7 @@ class _MediaCellState extends State<_MediaCell> {
       return MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          onTap: () => selection.toggleItem(widget.item!.id),
+          onTap: () => context.read<SelectionController>().toggleItem(widget.item!.id),
           child: Stack(
             children: [
               // thumbnail and duration badge
