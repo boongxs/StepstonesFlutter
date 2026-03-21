@@ -3,6 +3,8 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../controllers/settings_controller.dart';
 
 class UniversalPlayer extends StatefulWidget {
   final String filePath;
@@ -32,7 +34,9 @@ class _UniversalPlayerState extends State<UniversalPlayer> {
     controller = VideoController(player);
     _focusNode = FocusNode();
 
-    player.setVolume(50.0); // initial volume at 50%
+    final startingVolume = context.read<SettingsController>().defaultVolume;
+
+    player.setVolume(startingVolume); // initial volume at 50%
     player.open(Media(widget.filePath)); // start playing immediately
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -392,7 +396,13 @@ class _VolumeControl extends StatefulWidget {
 
 class _VolumeControlState extends State<_VolumeControl> {
   bool _isHovered = false;
-  double _lastVolume = 50.0;
+  late double _lastVolume;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastVolume = context.read<SettingsController>().defaultVolume;
+  }
 
   IconData _getVolumeIcon(double volume) {
     if (volume == 0) return Icons.volume_off_rounded;
@@ -405,7 +415,8 @@ class _VolumeControlState extends State<_VolumeControl> {
       _lastVolume = currentVolume;
       widget.player.setVolume(0.0);
     } else {
-      widget.player.setVolume(_lastVolume > 0 ? _lastVolume : 50.0);
+      final fallbackVolume = context.read<SettingsController>().defaultVolume;
+      widget.player.setVolume(_lastVolume > 0 ? _lastVolume : fallbackVolume);
     }
   }
 
@@ -417,7 +428,8 @@ class _VolumeControlState extends State<_VolumeControl> {
       child: StreamBuilder<double>(
         stream: widget.player.stream.volume,
         builder: (context, snapshot) {
-          final volume = snapshot.data ?? 50.0;
+          final fallbackVolume = context.read<SettingsController>().defaultVolume;
+          final volume = snapshot.data ?? fallbackVolume;
 
           return Row(
             mainAxisSize: MainAxisSize.min,

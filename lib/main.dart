@@ -14,6 +14,7 @@ import 'package:media_kit/media_kit.dart';
 import 'services/media_action_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'constants.dart';
+import 'package:stepstones_flt/controllers/settings_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // initialize flutter engine
@@ -30,6 +31,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => SettingsController()),
         ChangeNotifierProvider(create: (_) => SessionController()),
         ChangeNotifierProvider(create: (_) => StatusCardProvider()),
         ChangeNotifierProvider(create: (_) => LogsViewProvider()),
@@ -64,13 +66,15 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     LogService.d("Building MyApp widget");
 
+    final settings = context.watch<SettingsController>();
+
     return MaterialApp(
       scaffoldMessengerKey: MediaActionService.rootMessengerKey,
       title: "Stepstones",
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFF282828),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.tealAccent,
+          seedColor: settings.themeColor,
           brightness: Brightness.dark,
         ),
 

@@ -27,7 +27,7 @@ class GalleryController extends ChangeNotifier {
   bool isItemAnimating(int id) => _itemsAnimatingOut.contains(id); 
 
   // --- pagination cache ---
-  static const int _pageSize = 50;
+  static const int _pageSize = 200;
   static const int _maxPagesInMemory = 4;
   final Map<int, List<MediaItem>> _pageCache = {};
   Map<int, List<MediaItem>> _stalePageCache = {};

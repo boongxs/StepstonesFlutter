@@ -12,6 +12,7 @@ import '../providers/status_card_provider.dart';
 import '../widgets/primary_search_bar.dart';
 import '../widgets/main_toolbar.dart';
 import '../widgets/library_header.dart';
+import '../widgets/settings_dialog.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -105,7 +106,7 @@ class MainScreen extends StatelessWidget {
           // --- VERSION NUMBER ---
           Positioned(
             top: 10,
-            left: 15,
+            right: 15,
             child: Text(
               "v${AppConstants.appVersion}",
               style: TextStyle(
@@ -113,6 +114,35 @@ class MainScreen extends StatelessWidget {
                 fontSize: 12,
                 fontFamily: "monospace",
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+          // --- SETTINGS BUTTON ---
+          Positioned(
+            top: 15,
+            left: 15,
+            child: SizedBox(
+              width: 50,
+              height: 50,
+              child: Tooltip(
+                message: "Settings",
+                child: ElevatedButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (ctx) => const SettingsDialog(),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff404040),
+                    foregroundColor: const Color(0xfff0f0f0),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Icon(Icons.settings, size: 32),
+                ),
               ),
             ),
           ),
