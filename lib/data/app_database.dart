@@ -149,12 +149,30 @@ class AppDatabase extends _$AppDatabase {
     return query.map((row) => row.read(mediaItems.hashedFileName)!).get();
   }
 
-  // batch delete items
-  Future<int> deleteMediaItems(List<String> filenames, String folderPath) {
-    return (delete(mediaItems)
-      ..where((t) => t.mediaFolderPath.equals(folderPath))
-      ..where((t) => t.hashedFileName.isIn(filenames))
-    ).go();
+  // batch delete items by filename
+  Future<void> deleteMediaItems(List<String> filenames, String folderPath) {
+    return transaction(() async {
+      // find IDs of items to be deleted
+      final query = selectOnly(mediaItems)
+        ..addColumns([mediaItems.id])
+        ..where(mediaItems.mediaFolderPath.equals(folderPath))
+        ..where(mediaItems.hashedFileName.isIn(filenames));
+      
+      final ids = await query.map((row) => row.read(mediaItems.id)!).get();
+
+      if (ids.isNotEmpty) {
+        // delete all tag links
+        await (delete(mediaTags)..where((t) => t.mediaId.isIn(ids))).go();
+
+        // delete media items
+        await (delete(mediaItems)..where((t) => t.id.isIn(ids))).go();
+
+        // clean up tags that are no longer linked to any media items
+        await customStatement(
+          'DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM media_tags)'
+        );
+      }
+    });
   }
 
   // fetch a specific page of items (data virtualization)
@@ -166,8 +184,19 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
-  Future<int> deleteMediaItem(int id) {
-    return (delete(mediaItems)..where((t) => t.id.equals(id))).go();
+  Future<void> deleteMediaItem(int id) {
+    return transaction(() async {
+      // wipe all tag links for this item
+      await (delete(mediaTags)..where((t) => t.mediaId.equals(id))).go();
+      
+      // delete the actual media item
+      await (delete(mediaItems)..where((t) => t.id.equals(id))).go();
+      
+      // clean up tags that are no longer linked to any media items
+      await customStatement(
+        'DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM media_tags)'
+      );
+    });
   }
 
   Future<void> updateMediaTags(int mediaId, String newTags) {
@@ -229,7 +258,18 @@ class AppDatabase extends _$AppDatabase {
 
   // batch delete from database
   Future<void> deleteMediaItemsById(List<int> ids) {
-    return (delete(mediaItems)..where((t) => t.id.isIn(ids))).go();
+    return transaction(() async {
+      // wipe all tag links for these media items
+      await (delete(mediaTags)..where((t) => t.mediaId.isIn(ids))).go();
+
+      // delete actual media items
+      await (delete(mediaItems)..where((t) => t.id.isIn(ids))).go();
+
+      // clean up tags that no longer have any media items linked to them
+      await customStatement(
+        'DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM media_tags)'
+      );
+    });
   }
 
   // fetch full media items by filenames (for ghost cleanup)
