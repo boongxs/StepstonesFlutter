@@ -35,7 +35,7 @@ class MetadataHelper {
     return const MediaMetadata();
   }
 
-  // images or GIFs (fast)
+  // images or GIFs
   static Future<MediaMetadata> _extractImageMetadata(String path) async {
     try {
       final file = File(path);
@@ -50,12 +50,20 @@ class MetadataHelper {
         durationMs: 0,
       );
     } catch (e) {
+      LogService.i("Failed to get image metadata for $path. Attempting with FFProbe...");
+
+      final fallbackData = await _extractFfprobeMetadata(path);
+
       // fallback for corrupt images
-      return const MediaMetadata();
+      return MediaMetadata(
+        width: fallbackData.width,
+        height: fallbackData.height,
+        durationMs: 0,
+      );
     }
   }
 
-  // video or audio (slow)
+  // video or audio
   static Future<MediaMetadata> _extractFfprobeMetadata(String path) async {
     try {
       final result = await Process.run(

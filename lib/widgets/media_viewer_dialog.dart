@@ -39,6 +39,10 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   @override
   void dispose() {
     _focusNode.dispose();
+
+    imageCache.clear();
+    imageCache.clearLiveImages();
+
     super.dispose();
   }
 
@@ -110,6 +114,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
             File(fullPath),
             key: ValueKey(item.id),
             fit: BoxFit.contain,
+            cacheWidth: displaySize.width.toInt(),
             errorBuilder: (ctx, err, stack) => const Center(
               child: Icon(Icons.broken_image, color: Colors.white, size: 48),
             ),
