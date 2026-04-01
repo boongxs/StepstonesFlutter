@@ -10,6 +10,7 @@ dependencies:
   archive: ^4.0.9
   disk_space_2: ^1.0.12
   drift: ^2.30.0
+  ffmpeg_kit_flutter_new: ^4.1.0
   file_picker: ^10.3.7
   flutter:
     sdk: flutter
@@ -25,6 +26,8 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.5
   provider: ^6.1.5+1
+  receive_sharing_intent: ^1.8.1
+  share_plus: ^12.0.1
   shared_preferences: ^2.5.3
   sqlite3_flutter_libs: ^0.5.41
   super_clipboard: ^0.9.1

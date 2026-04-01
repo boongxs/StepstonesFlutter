@@ -17,6 +17,7 @@ import 'gallery_controller.dart';
 import '../services/bundle_import_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:disk_space_2/disk_space_2.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 class SyncController extends ChangeNotifier {
   final AppDatabase db;
@@ -43,6 +44,54 @@ class SyncController extends ChangeNotifier {
         }
       }
     });
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      _initIntentListener();
+    }
+  }
+
+  void _initIntentListener() {
+    // listen to media shared while app is running in background
+    ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
+      _handleSharedFiles(value);
+    }, onError: (err) {
+      LogService.e("Share intent stream error: $err");
+    });
+
+    // listen to media shared when app is completely closed and launched via share
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+      _handleSharedFiles(value);
+    });
+  }
+
+  // process incoming paths from Android OS
+  Future<void> _handleSharedFiles(List<SharedMediaFile> sharedFiles) async {
+    if (sharedFiles.isEmpty) return;
+
+    while (session.mediaFolderPath == null) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    final paths = sharedFiles.map((f) => f.path).toList();
+    final bundleFiles = paths.where((f) => p.extension(f).toLowerCase() == ".stepstone").toList();
+    final mediaFiles = paths.where((f) => p.extension(f).toLowerCase() != ".stepstone").toList();
+
+    for (final bundlePath in bundleFiles) {
+      _handleBundleImport(bundlePath);
+    }
+
+    if (mediaFiles.isNotEmpty) {
+      _uploadQueue.addAll(mediaFiles);
+      jobStatus.startJob("Receiving shared files...");
+      notifyListeners();
+
+      if (!_isUploading) {
+        _processUploadQueue();
+      }
+    }
+
+    // clear intent so it doesn't process again
+    ReceiveSharingIntent.instance.reset();
   }
 
   // --- actions ---
@@ -103,7 +152,12 @@ class SyncController extends ChangeNotifier {
         .toList();
 
       await _handleGhosts(folderPath, dbFiles, diskFilesList);
-      await _handleOrphans(dbFiles.toSet(), diskFilesList);
+
+      // only process orphans on desktop where users can easily drop files outside application
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        await _handleOrphans(dbFiles.toSet(), diskFilesList);
+      }
+
       await _validateThumbnails(folderPath);
     } catch (e) {
       LogService.e("Sync failed.", e);

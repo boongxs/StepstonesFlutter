@@ -4,10 +4,17 @@ class PrimarySearchBar extends StatefulWidget {
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
 
+  final double? width;
+  final double? height;
+  final double? fontSize;
+
   const PrimarySearchBar({
     super.key,
     required this.controller,
     this.onChanged,
+    this.width = 600, // default for desktop
+    this.height = 72, // default for desktop
+    this.fontSize = 32, // default for desktop
   });
 
   @override
@@ -43,8 +50,8 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 100),
           curve: Curves.easeInOut,
-          width: 600,
-          height: 70,
+          width: widget.width,
+          height: widget.height,
           decoration: BoxDecoration(
             color: const Color(0xff303030),
             borderRadius: BorderRadius.circular(10),
@@ -54,11 +61,11 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
             ),
           ),
           alignment: Alignment.center,
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 7),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(
             controller: widget.controller,
             focusNode: _focusNode,
-            style: const TextStyle(fontSize: 32, height: 1.0),
+            style: TextStyle(fontSize: widget.fontSize, height: 1.0),
             textAlignVertical: TextAlignVertical.center,
             cursorColor: const Color.fromARGB(255, 161, 161, 161),
             decoration: const InputDecoration(

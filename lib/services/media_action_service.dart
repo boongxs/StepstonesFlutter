@@ -8,6 +8,8 @@ import '../utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import '../controllers/gallery_controller.dart';
 import '../locator.dart';
+import 'dart:io';
+import 'package:share_plus/share_plus.dart';
 
 class MediaActionService {
   MediaActionService._();
@@ -135,5 +137,26 @@ class MediaActionService {
     );
 
     return success;
+  }
+
+  // mobile sharing method
+  static Future<void> onShare(BuildContext context, MediaItem item) async {
+    final fullPath = p.join(item.mediaFolderPath, item.hashedFileName);
+    final file = File(fullPath);
+
+    if (await file.exists()) {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(fullPath)],
+        ),
+      );
+    } else {
+      if (context.mounted) {
+        context.showStepstonesSnackBar(
+          "Cannot share: File not found on disk",
+          isError: true,
+        );
+      }
+    }
   }
 }

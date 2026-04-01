@@ -32,7 +32,12 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsController()),
-        ChangeNotifierProvider(create: (_) => SessionController()),
+
+        ChangeNotifierProvider(
+          create: (_) => SessionController(),
+          lazy: false
+        ),
+
         ChangeNotifierProvider(create: (_) => StatusCardProvider()),
         ChangeNotifierProvider(create: (_) => LogsViewProvider()),
 
@@ -47,12 +52,15 @@ void main() async {
           context.read<GalleryController>(),
         )),
 
-        ChangeNotifierProvider(create: (context) => SyncController(
-          getIt<AppDatabase>(), 
-          context.read<SessionController>(), 
-          context.read<GalleryController>(), 
-          context.read<StatusCardProvider>(),
-        )),
+        ChangeNotifierProvider(
+          create: (context) => SyncController(
+            getIt<AppDatabase>(), 
+            context.read<SessionController>(), 
+            context.read<GalleryController>(), 
+            context.read<StatusCardProvider>(),
+          ),
+          lazy: false,
+        ),
       ],
       child: const MainApp(),
     )

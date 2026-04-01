@@ -6,6 +6,10 @@ import 'services/file_picker_service.dart';
 import 'services/file_service.dart';
 import 'data/app_database.dart';
 import 'controllers/export_controller.dart';
+import 'services/media_utility_service.dart';
+import 'services/desktop_media_utility_service.dart';
+import 'services/android_media_utility_service.dart';
+import 'dart:io';
 
 final getIt = GetIt.instance;
 
@@ -17,4 +21,10 @@ void setupLocator() {
   getIt.registerLazySingleton<FilePickerService>(() => FilePickerService());
   getIt.registerLazySingleton<FileService>(() => FileService());
   getIt.registerLazySingleton<ExportController>(() => ExportController());
+
+  if (Platform.isAndroid || Platform.isIOS) {
+    getIt.registerLazySingleton<MediaUtilityService>(() => AndroidMediaUtilityService());
+  } else {
+    getIt.registerLazySingleton<MediaUtilityService>(() => DesktopMediaUtilityService());
+  }
 }

@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import '../services/logger_service.dart';
 import '../constants.dart';
+import '../locator.dart';
+import '../services/media_utility_service.dart';
 
 class _ThumbnailRequest {
   final String sourcePath;
@@ -113,32 +115,12 @@ class ThumbnailHelper {
   // video logic (extract frame -> image logic)
   static Future<bool> _processVideo(String sourcePath, File target, int durationMs) async {
     try {
-      // calculate 10% timestamp
-      int targetMs = (durationMs * 0.10).toInt();
-
-      final timeString = _formatDuration(targetMs); // format as HH:MM:SS.mmm for FFmpeg
       final tempFrame = File("${target.path}.tmp.jpg"); // extract frame to a temp file
 
-      final result = await Process.run(
-        "ffmpeg",
-        [
-          '-y',
-          '-ss', timeString,
-          '-i', sourcePath,
-          '-vframes', '1',
-          tempFrame.path
-        ]
-      );
+      final utilityService = getIt<MediaUtilityService>();
+      final extractionSuccess = await utilityService.extractVideoFrame(sourcePath, tempFrame.path, durationMs);
 
-      if (result.exitCode != 0) {
-        LogService.e("FFmpeg Failed (Exit Code ${result.exitCode}): ${result.stderr}");
-        return false;
-      }
-
-      if (!await tempFrame.exists()) {
-        LogService.e("FFmpeg finished but output file is missing.");
-        return false;
-      }
+      if (!extractionSuccess) return false;
 
       final request = _ThumbnailRequest(
         sourcePath: tempFrame.path, 
@@ -158,15 +140,5 @@ class ThumbnailHelper {
       LogService.e("Video processing failed: $e");
       return false;
     }
-  }
-
-  static String _formatDuration(int ms) {
-    final duration = Duration(milliseconds: ms);
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String threeDigits(int n) => n.toString().padLeft(3, "0");
-    return "${twoDigits(duration.inHours)}:"
-      "${twoDigits(duration.inMinutes.remainder(60))}:"
-      "${twoDigits(duration.inSeconds.remainder(60))}."
-      "${threeDigits(duration.inMilliseconds.remainder(1000))}";
   }
 }

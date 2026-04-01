@@ -5,6 +5,8 @@ import '../locator.dart';
 import 'package:disk_space_2/disk_space_2.dart';
 import '../services/logger_service.dart';
 import '../constants.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class SessionController extends ChangeNotifier {
   final SettingsService _settingsService = getIt<SettingsService>();
@@ -35,8 +37,14 @@ class SessionController extends ChangeNotifier {
   Future<void> initialize() async {
     _appSupportPath = AppConstants.appSupportPath;
 
-    // store media folder path
-    _mediaFolderPath = await _settingsService.loadMediaFolderPath();
+    if (Platform.isAndroid || Platform.isIOS) {
+      // on mobile: sandbox library into internal app storage
+      final dir = await getApplicationDocumentsDirectory();
+      _mediaFolderPath = dir.path;
+    } else {
+      // on desktop: load user-selected folder from settings
+      _mediaFolderPath = await _settingsService.loadMediaFolderPath();
+    }
 
     notifyListeners();
   }

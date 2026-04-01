@@ -4,6 +4,8 @@ import '../services/bundle_service.dart';
 import '../services/logger_service.dart';
 import '../providers/status_card_provider.dart';
 import '../data/app_database.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path/path.dart' as p;
 
 enum ExportStatus {
   success,
@@ -57,6 +59,55 @@ class ExportController {
       }
 
       status.finishJob("Bundle saved successfully");
+      return ExportResult.success();
+    } catch (e) {
+      LogService.e("Exception during bundle creation", e);
+      await _cleanupFailedBundle(savePath);
+      status.finishJob("Packing failed", isError: true);
+
+      return ExportResult.error("An error occurred while packing: $e");
+    }
+  }
+
+  /// Handles the flow of exporting media items to a .stepstone bundle on mobile
+  /// Builds the file in temp directory and pushes it to Share Sheet
+  Future<ExportResult> exportBundleMobile({
+    required List<MediaItem> itemsToExport,
+    required StatusCardProvider status,
+    required String tempDirPath,
+  }) async {
+    if (itemsToExport.isEmpty) return ExportResult.error("No items selected.");
+
+    // define temp path to build the bundle file
+    final savePath = p.join(tempDirPath, "SharedCollection.stepstone");
+
+    // start packing
+    status.startJob("Packing media items...");
+    LogService.i("Creating temporary bundle at: $savePath");
+
+    try {
+      final successPath = await BundleService.createBundle(
+        itemsToExport,
+        outputPath: savePath,
+        onProgress: (fileName) => status.updateProgress(fileName),
+      );
+
+      if (successPath == null) {
+        await _cleanupFailedBundle(savePath);
+        status.finishJob("Packing failed", isError: true);
+        return ExportResult.error("Failed to construct bundle.");
+      }
+
+      status.finishJob("Bundle ready.");
+
+      // immediately trigger Android Share Sheet with finished file
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(savePath)],
+          text: "Stepstones Media Bundle",
+        ),
+      );
+
       return ExportResult.success();
     } catch (e) {
       LogService.e("Exception during bundle creation", e);

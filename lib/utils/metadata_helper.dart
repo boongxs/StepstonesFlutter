@@ -1,8 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:image_size_getter/image_size_getter.dart' as isg;
 import 'package:image_size_getter/file_input.dart';
 import '../services/logger_service.dart';
+import '../locator.dart';
+import '../services/media_utility_service.dart';
 
 class MediaMetadata {
   final int width;
@@ -65,60 +66,8 @@ class MetadataHelper {
 
   // video or audio
   static Future<MediaMetadata> _extractFfprobeMetadata(String path) async {
-    try {
-      final result = await Process.run(
-        "ffprobe", 
-        [
-          '-v', 'error',
-          '-print_format', 'json',
-          '-show_format',
-          '-show_streams',
-          path
-        ]
-      );
-
-      if (result.exitCode != 0) {
-        LogService.e("FFprobe failed on $path (Code ${result.exitCode}): ${result.stderr}");
-        return const MediaMetadata();
-      }
-
-      final jsonMap = jsonDecode(result.stdout.toString());
-
-      int width = 0;
-      int height = 0;
-      double durationSec = 0.0;
-
-      // get duration from 'format'
-      if (jsonMap.containsKey('format')) {
-        final fmt = jsonMap['format'];
-        if (fmt.containsKey('duration')) {
-          durationSec = double.tryParse(fmt['duration'].toString()) ?? 0.0;
-        }
-      }
-
-      // get dimensions from video stream
-      if (jsonMap.containsKey('streams')) {
-        final List streams = jsonMap['streams'];
-        // find the first video stream
-        final videoStream = streams.firstWhere(
-          (s) => s['codec_type'] == 'video',
-          orElse: () => null
-        );
-
-        if (videoStream != null) {
-          width = int.tryParse(videoStream['width'].toString()) ?? 0;
-          height = int.tryParse(videoStream['height'].toString()) ?? 0;
-        }
-      }
-
-      return MediaMetadata(
-        width: width,
-        height: height,
-        durationMs: (durationSec * 1000).toInt(),
-      );
-    } catch (e) {
-      LogService.e("Exception in _extractFfprobeMetadata: $e");
-      return const MediaMetadata();
-    }
+    final utilityService = getIt<MediaUtilityService>();
+    
+    return await utilityService.extractVideoMetadata(path);
   }
 }
