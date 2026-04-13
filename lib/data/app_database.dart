@@ -55,59 +55,10 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
-      onCreate: (Migrator m) async {
+      onCreate: (Migrator m) async { // creates all three tables on fresh install
         await m.createAll();
       },
-      onUpgrade: (Migrator m, int from, int to) async {
-        if (from == 1 && to == 2) {
-          // create new tables
-          await m.createTable(tags);
-          await m.createTable(mediaTags);
-
-          // extract old tags
-          final oldData = await customSelect(
-            "SELECT id, tags FROM media_items WHERE tags IS NOT NULL AND length(trim(tags)) > 0"
-          ).get();
-
-          // process and port data
-          for (final row in oldData) {
-            final mediaId = row.read<int>("id");
-            final oldTagsString = row.read<String>("tags");
-
-            final words = oldTagsString.trim().split(RegExp(r"\s+"));
-
-            for (final word in words) {
-              if (word.isEmpty) continue;
-
-              // check if tag already exists in the new Tags table
-              final tagQuery = select(tags)..where((t) => t.name.equals(word));
-              var existingTag = await tagQuery.getSingleOrNull();
-
-              int currentTagId;
-              if (existingTag == null) {
-                // insert new tag and get its generated id
-                currentTagId = await into(tags).insert(
-                  TagsCompanion.insert(name: word),
-                );
-              } else {
-                currentTagId = existingTag.id;
-              }
-
-              // link the tag to media item in MediaTags junction table
-              await into(mediaTags).insert(
-                MediaTagsCompanion.insert(
-                  mediaId: mediaId,
-                  tagId: currentTagId,
-                ),
-                mode: InsertMode.insertOrIgnore,
-              );
-            }
-          }
-
-          // drop the old tags column from media_items table
-          await m.alterTable(TableMigration(mediaItems));
-        }
-      },
+      // foreign key enforcement to ensure deleting a media item correctly executes
       beforeOpen: (details) async {
         await customStatement("PRAGMA foreign_keys = ON");
       },
