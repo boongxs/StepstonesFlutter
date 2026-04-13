@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:stepstones_flt/constants.dart';
 import '../data/app_database.dart';
 import '../utils/min_extra_delegate.dart';
 import '../services/media_action_service.dart';
@@ -39,7 +40,7 @@ class MediaGrid extends StatelessWidget {
 
     // pass cached base path to cells
     final thumbBaseDir = session.appSupportPath != null
-      ? p.join(session.appSupportPath!, "thumbnails")
+      ? p.join(session.appSupportPath!, AppConstants.thumbnailDirectory)
       : null;
 
     return RawScrollbar(

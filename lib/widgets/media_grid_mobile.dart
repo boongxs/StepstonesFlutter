@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:stepstones_flt/constants.dart';
 import '../controllers/gallery_controller.dart';
 import '../controllers/session_controller.dart';
 import '../data/app_database.dart';
@@ -134,7 +135,7 @@ class _MobileMediaCell extends StatelessWidget {
   File? _getThumbnailFile(BuildContext context, MediaItem item) {
     final session = context.read<SessionController>();
     if (session.appSupportPath == null || item.thumbnailPath == null) return null;
-    final fullPath = p.join(session.appSupportPath!, "thumbnails", item.thumbnailPath!);
+    final fullPath = p.join(session.appSupportPath!, AppConstants.thumbnailDirectory, item.thumbnailPath!);
     return File(fullPath);
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:drift/drift.dart' as drift;
 import 'package:sqlite3/sqlite3.dart';
+import 'package:stepstones_flt/constants.dart';
 import '../locator.dart';
 import '../data/app_database.dart';
 import '../services/logger_service.dart';
@@ -303,7 +304,7 @@ class SyncController extends ChangeNotifier {
 
       // delete thumbnail files
       if (session.appSupportPath != null) {
-        final thumbDir = Directory(p.join(session.appSupportPath!, "thumbnails"));
+        final thumbDir = Directory(p.join(session.appSupportPath!, AppConstants.thumbnailDirectory));
 
         for (var item in ghostItems) {
           if (item.thumbnailPath != null) {
@@ -361,7 +362,7 @@ class SyncController extends ChangeNotifier {
 
     final items = await db.getItemsInFolder(folderPath);
     final validTypes = const ["image", "video", "gif"];
-    final thumbDir = Directory(p.join(session.appSupportPath!, "thumbnails"));
+    final thumbDir = Directory(p.join(session.appSupportPath!, AppConstants.thumbnailDirectory));
     int restoredCount = 0;
 
     for (var item in items) {
@@ -477,7 +478,7 @@ class SyncController extends ChangeNotifier {
     final thumbsDir = p.join(unpackedPath, "thumbs");
 
     final supportPath = session.appSupportPath;
-    final systemThumbsDir = supportPath != null ? p.join(supportPath, "thumbnails") : null;
+    final systemThumbsDir = supportPath != null ? p.join(supportPath, AppConstants.thumbnailDirectory) : null;
 
     for (final entry in itemsToImport) {
       final hashedFileName = entry.key;

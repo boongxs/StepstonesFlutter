@@ -137,7 +137,7 @@ class BundleService {
         // copy thumbnail
         final thumbPath = item["thumbnailPath"] as String?;
         if (thumbPath != null) {
-          final sourceThumb = File(p.join(input.appSupportPath, "thumbnails", thumbPath));
+          final sourceThumb = File(p.join(input.appSupportPath, AppConstants.thumbnailDirectory, thumbPath));
           if (sourceThumb.existsSync()) {
             sourceThumb.copySync(p.join(thumbsDir.path, thumbPath));
           }

@@ -113,7 +113,7 @@ class GalleryController extends ChangeNotifier {
 
           // delete thumbnail file
           if (item.thumbnailPath != null) {
-            final thumbFile = File(p.join(appDir, "thumbnails", item.thumbnailPath!));
+            final thumbFile = File(p.join(appDir, AppConstants.thumbnailDirectory, item.thumbnailPath!));
             try {
               if (await thumbFile.exists()) await thumbFile.delete();
             } catch (e) {

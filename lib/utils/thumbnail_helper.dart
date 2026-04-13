@@ -71,7 +71,7 @@ class ThumbnailHelper {
     try {
       // prepare storage (AppData/thumbnails)
       final appDir = AppConstants.appSupportPath;
-      final thumbDir = Directory(p.join(appDir, "thumbnails"));
+      final thumbDir = Directory(p.join(appDir, AppConstants.thumbnailDirectory));
       if (!await thumbDir.exists()) {
         await thumbDir.create(recursive: true);
       }
