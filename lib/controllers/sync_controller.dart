@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:drift/drift.dart' as drift;
+import 'package:sqlite3/sqlite3.dart';
 import '../locator.dart';
 import '../data/app_database.dart';
 import '../services/logger_service.dart';
@@ -249,11 +250,10 @@ class SyncController extends ChangeNotifier {
 
           await db.insertMediaItem(entry);
         } catch (e) {
-          final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
-          if (isDuplicate) {
+          if (e is SqliteException && e.extendedResultCode == 2067) {
             LogService.i("Duplicate database entry skipped: $fileName");
           } else {
-            LogService.i("Duplicate database entry skipped: $fileName");
+            LogService.e("Failed to insert media item into database: $fileName", e);
           }
         }
       } else if (response.status == CopyResult.duplicate) {
@@ -489,13 +489,15 @@ class SyncController extends ChangeNotifier {
       final destMedia = p.join(destFolder, hashedFileName);
 
       bool isSuccess = true;
+      bool isDuplicate = false;
 
       // copy media file
       if (await File(sourceMedia).exists()) {
         if (!await File(destMedia).exists()) {
           await compute(_copyFileInBackground, [sourceMedia, destMedia]);
         } else {
-          LogService.i("Duplicate on disk, skipping copy: $hashedFileName");
+          isDuplicate = true;
+          LogService.w("Duplicate item skipped: $hashedFileName");
         }
       } else {
         isSuccess = false; // missing in bundle
@@ -517,7 +519,7 @@ class SyncController extends ChangeNotifier {
       }
 
       // database insert
-      if (isSuccess) {
+      if (isSuccess && !isDuplicate) {
         try {
           final companion = MediaItemsCompanion(
             fileHash: drift.Value(hashedFileName.split(".").first),
@@ -538,12 +540,7 @@ class SyncController extends ChangeNotifier {
             await db.updateMediaTags(insertedId, data["tags"]);
           }
         } catch (e) {
-          final isDuplicate = e.toString().contains("2067") || e.toString().contains("UNIQUE constraint failed");
-          if (isDuplicate) {
-            LogService.i("Duplicate in database, skipping insert: $hashedFileName");
-          } else {
-            LogService.e("Failed to insert media item into database: $hashedFileName", e);
-          }
+          LogService.e("Failed to insert media item into database: $hashedFileName", e);
         }
       }
     }

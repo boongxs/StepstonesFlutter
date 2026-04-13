@@ -218,7 +218,7 @@ class GalleryController extends ChangeNotifier {
 
       notifyListeners();
     }).catchError((e) {
-      LogService.e("Fetched failed for page $pageIndex", e);
+      LogService.e("Fetch failed for page $pageIndex", e);
       _pagesBeingFetched.remove(pageIndex);
     });
   }
