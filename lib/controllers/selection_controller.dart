@@ -3,6 +3,8 @@ import '../data/app_database.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
 import '../services/logger_service.dart';
+import '../services/media_action_service.dart';
+import '../utils/snackbar_helper.dart';
 
 class SelectionController extends ChangeNotifier {
   final AppDatabase _db;
@@ -91,7 +93,15 @@ class SelectionController extends ChangeNotifier {
       final itemsToDelete = await _db.getMediaItemsByIds(_selectedItemIds.toList());
 
       // perform delete
-      await _gallery.deleteItems(itemsToDelete);
+      final success = await _gallery.deleteItems(itemsToDelete);
+
+      // show feedback
+      MediaActionService.rootMessengerKey.currentState?.showStepstonesSnackBar(
+        success
+          ? "Successfully deleted ${itemsToDelete.length} item${itemsToDelete.length == 1 ? '' : 's'}"
+          : "Failed to delete selected items",
+        isError: !success,
+      );
 
       // cleanup selection state
       _selectedItemIds.clear();

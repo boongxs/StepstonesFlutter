@@ -72,21 +72,11 @@ class MediaGrid extends StatelessWidget {
             return Selector<GalleryController, MediaItem?>(
               selector: (context, galleryController) => galleryController.getItem(index),
               builder: (context, item, child) {
-                final isDeleting = item != null && context.read<GalleryController>().isItemAnimating(item.id);
-                return AnimatedScale(
-                  scale: isDeleting ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInBack,
-                  child: AnimatedOpacity(
-                    opacity: isDeleting ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: _MediaCell(
-                      key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
-                      item: item, 
-                      index: index,
-                      thumbBaseDir: thumbBaseDir
-                    ),
-                  ),
+                return _MediaCell(
+                  key: item != null ? ValueKey(item.id) : ValueKey("loading_$index"),
+                  item: item,
+                  index: index,
+                  thumbBaseDir: thumbBaseDir
                 );
               }
             );

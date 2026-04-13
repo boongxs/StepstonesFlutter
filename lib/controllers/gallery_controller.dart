@@ -22,10 +22,6 @@ class GalleryController extends ChangeNotifier {
   String? get currentSearchQuery => _currentSearchQuery;
   Timer? _searchDebounceTimer;
 
-  // --- delete animation state ---
-  final Set<int> _itemsAnimatingOut = {};
-  bool isItemAnimating(int id) => _itemsAnimatingOut.contains(id); 
-
   // --- pagination cache ---
   static const int _pageSize = 200;
   static const int _maxPagesInMemory = 4;
@@ -83,23 +79,11 @@ class GalleryController extends ChangeNotifier {
     }
   }
 
-  // cleanup helper
-  void clearAnimatingItems(List<int> ids) {
-    _itemsAnimatingOut.removeAll(ids);
-    notifyListeners();
-  }
-
   // --- CRUD actions ---
   Future<bool> deleteItems(List<MediaItem> itemsToDelete) async {
     if (itemsToDelete.isEmpty) return true;
 
-    // optimistic UI update (start fade out animation)
     final idsToDelete = itemsToDelete.map((e) => e.id).toList();
-    _itemsAnimatingOut.addAll(idsToDelete);
-    notifyListeners();
-
-    // wait 300ms for fade out animation to complete
-    await Future.delayed(const Duration(milliseconds: 300));
 
     // save scroll position
     double previousOffset = 0.0;
@@ -147,7 +131,6 @@ class GalleryController extends ChangeNotifier {
       }
 
       // cleanup UI state
-      _itemsAnimatingOut.removeAll(idsToDelete);
       _invalidateCache();
       await refreshLibrary();
 
@@ -168,7 +151,6 @@ class GalleryController extends ChangeNotifier {
       return true;
     } catch (e) {
       LogService.e("Critical error during deletion pipeline", e);
-      _itemsAnimatingOut.removeAll(idsToDelete);
       notifyListeners();
 
       return false;
