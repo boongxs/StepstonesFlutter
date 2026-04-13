@@ -140,7 +140,35 @@ class SelectionModeCard extends StatelessWidget {
               hoverColor: const Color(0xFF2e1e1e),
               contentColor: const Color(0xFFf87171),
               defaultContentColor: Colors.white,
-              onTap: selection.isDeleting ? () {} : selection.deleteSelected,
+              onTap: selection.isDeleting
+                ? () {}
+                : () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text("Delete Selected Items"),
+                        content: Text(
+                          "Are you sure you want to delete ${selection.selectedCount} "
+                          "item${selection.selectedCount == 1 ? '' : 's'}?"
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text("Cancel"),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Theme.of(ctx).colorScheme.error,
+                            ),
+                            child: const Text("Delete"),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) await selection.deleteSelected();
+                  },
               builder: (isHovered) {
                 // if deleting, show spinner
                 if (selection.isDeleting) {

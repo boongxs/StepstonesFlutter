@@ -135,21 +135,6 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
-  Future<void> deleteMediaItem(int id) {
-    return transaction(() async {
-      // wipe all tag links for this item
-      await (delete(mediaTags)..where((t) => t.mediaId.equals(id))).go();
-      
-      // delete the actual media item
-      await (delete(mediaItems)..where((t) => t.id.equals(id))).go();
-      
-      // clean up tags that are no longer linked to any media items
-      await customStatement(
-        'DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM media_tags)'
-      );
-    });
-  }
-
   Future<void> updateMediaTags(int mediaId, String newTags) {
     return transaction(() async {
       // wipe all existing tag links for this specific media item
