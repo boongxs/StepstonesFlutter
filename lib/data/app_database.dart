@@ -20,6 +20,7 @@ class MediaItems extends Table {
   IntColumn get duration => integer().nullable()();
   IntColumn get width => integer().withDefault(const Constant(0))();
   IntColumn get height => integer().withDefault(const Constant(0))();
+  TextColumn get perceptualHash => text().nullable()();
 
   // helper to prevent duplicate entries: fileHash + mediaFolderPath must be unique
   @override
@@ -34,6 +35,16 @@ class Tags extends Table {
   TextColumn get name => text().unique()(); // enforce that tags are unique
 }
 
+// pending near-duplicate review pairs
+class PendingReviews extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  @ReferenceName('uploadedItemReviews')
+  IntColumn get uploadedItemId => integer().references(MediaItems, #id, onDelete: KeyAction.cascade)();
+  @ReferenceName('matchedItemReviews')
+  IntColumn get matchedItemId  => integer().references(MediaItems, #id, onDelete: KeyAction.cascade)();
+  RealColumn get similarityPercent => real()();
+}
+
 // junction table linking media items to tags
 class MediaTags extends Table {
   IntColumn get mediaId => integer().references(MediaItems, #id)();
@@ -45,18 +56,28 @@ class MediaTags extends Table {
 }
 
 // database class
-@DriftDatabase(tables: [MediaItems, Tags, MediaTags])
+@DriftDatabase(tables: [MediaItems, Tags, MediaTags, PendingReviews])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
-      onCreate: (Migrator m) async { // creates all three tables on fresh install
+      onCreate: (Migrator m) async { // creates all tables on fresh install
         await m.createAll();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 3) {
+          final columns = await customSelect('PRAGMA table_info("media_items")').get();
+          final hasColumn = columns.any((r) => r.read<String>('name') == 'perceptual_hash');
+          if (!hasColumn) {
+            await m.addColumn(mediaItems, mediaItems.perceptualHash);
+          }
+          await m.createTable(pendingReviews);
+        }
       },
       // foreign key enforcement to ensure deleting a media item correctly executes
       beforeOpen: (details) async {
@@ -233,6 +254,78 @@ class AppDatabase extends _$AppDatabase {
     final results = await query.get();
 
     return results.map((row) => row.readTable(tags).name).join(" ");
+  }
+
+  // --- Perceptual hash methods ---
+
+  Future<void> updatePerceptualHash(int id, String hash) {
+    return (update(mediaItems)..where((t) => t.id.equals(id))).write(
+      MediaItemsCompanion(perceptualHash: Value(hash)),
+    );
+  }
+
+  // image items in folder missing a perceptual hash (for backfill)
+  Future<List<MediaItem>> getItemsNeedingPhash(String folderPath) {
+    return (select(mediaItems)
+      ..where((t) => t.mediaFolderPath.equals(folderPath))
+      ..where((t) => t.fileType.equals('image'))
+      ..where((t) => t.perceptualHash.isNull())
+    ).get();
+  }
+
+  // all image items in folder that have a perceptual hash (for similarity comparison)
+  Future<List<MediaItem>> getItemsWithPhash(String folderPath) {
+    return (select(mediaItems)
+      ..where((t) => t.mediaFolderPath.equals(folderPath))
+      ..where((t) => t.fileType.equals('image'))
+      ..where((t) => t.perceptualHash.isNotNull())
+    ).get();
+  }
+
+  // --- PendingReviews methods ---
+
+  Future<void> insertPendingReview(int uploadedItemId, int matchedItemId, double similarity) {
+    return into(pendingReviews).insert(
+      PendingReviewsCompanion.insert(
+        uploadedItemId: uploadedItemId,
+        matchedItemId: matchedItemId,
+        similarityPercent: similarity,
+      ),
+    );
+  }
+
+  Future<List<PendingReview>> getPendingReviews() {
+    return (select(pendingReviews)
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.uploadedItemId),
+        (t) => OrderingTerm(expression: t.id),
+      ])
+    ).get();
+  }
+
+  Stream<List<PendingReview>> watchPendingReviews() {
+    return (select(pendingReviews)
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.uploadedItemId),
+        (t) => OrderingTerm(expression: t.id),
+      ])
+    ).watch();
+  }
+
+  Future<int> getPendingReviewCount() async {
+    final query = selectOnly(pendingReviews)
+      ..addColumns([pendingReviews.id.count()]);
+    return query.map((row) => row.read(pendingReviews.id.count())!).getSingle();
+  }
+
+  Future<void> deletePendingReview(int id) {
+    return (delete(pendingReviews)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<void> deletePendingReviewsForUploadedItem(int uploadedItemId) {
+    return (delete(pendingReviews)
+      ..where((t) => t.uploadedItemId.equals(uploadedItemId))
+    ).go();
   }
 
   Expression<bool> _buildSearchPredicate(String folderPath, String? searchQuery) {

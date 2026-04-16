@@ -120,6 +120,17 @@ class $MediaItemsTable extends MediaItems
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _perceptualHashMeta = const VerificationMeta(
+    'perceptualHash',
+  );
+  @override
+  late final GeneratedColumn<String> perceptualHash = GeneratedColumn<String>(
+    'perceptual_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -132,6 +143,7 @@ class $MediaItemsTable extends MediaItems
     duration,
     width,
     height,
+    perceptualHash,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -224,6 +236,15 @@ class $MediaItemsTable extends MediaItems
         height.isAcceptableOrUnknown(data['height']!, _heightMeta),
       );
     }
+    if (data.containsKey('perceptual_hash')) {
+      context.handle(
+        _perceptualHashMeta,
+        perceptualHash.isAcceptableOrUnknown(
+          data['perceptual_hash']!,
+          _perceptualHashMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -277,6 +298,10 @@ class $MediaItemsTable extends MediaItems
         DriftSqlType.int,
         data['${effectivePrefix}height'],
       )!,
+      perceptualHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}perceptual_hash'],
+      ),
     );
   }
 
@@ -297,6 +322,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
   final int? duration;
   final int width;
   final int height;
+  final String? perceptualHash;
   const MediaItem({
     required this.id,
     required this.fileHash,
@@ -308,6 +334,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     this.duration,
     required this.width,
     required this.height,
+    this.perceptualHash,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -326,6 +353,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     }
     map['width'] = Variable<int>(width);
     map['height'] = Variable<int>(height);
+    if (!nullToAbsent || perceptualHash != null) {
+      map['perceptual_hash'] = Variable<String>(perceptualHash);
+    }
     return map;
   }
 
@@ -345,6 +375,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           : Value(duration),
       width: Value(width),
       height: Value(height),
+      perceptualHash: perceptualHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(perceptualHash),
     );
   }
 
@@ -364,6 +397,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       duration: serializer.fromJson<int?>(json['duration']),
       width: serializer.fromJson<int>(json['width']),
       height: serializer.fromJson<int>(json['height']),
+      perceptualHash: serializer.fromJson<String?>(json['perceptualHash']),
     );
   }
   @override
@@ -380,6 +414,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       'duration': serializer.toJson<int?>(duration),
       'width': serializer.toJson<int>(width),
       'height': serializer.toJson<int>(height),
+      'perceptualHash': serializer.toJson<String?>(perceptualHash),
     };
   }
 
@@ -394,6 +429,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     Value<int?> duration = const Value.absent(),
     int? width,
     int? height,
+    Value<String?> perceptualHash = const Value.absent(),
   }) => MediaItem(
     id: id ?? this.id,
     fileHash: fileHash ?? this.fileHash,
@@ -407,6 +443,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     duration: duration.present ? duration.value : this.duration,
     width: width ?? this.width,
     height: height ?? this.height,
+    perceptualHash: perceptualHash.present
+        ? perceptualHash.value
+        : this.perceptualHash,
   );
   MediaItem copyWithCompanion(MediaItemsCompanion data) {
     return MediaItem(
@@ -428,6 +467,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       duration: data.duration.present ? data.duration.value : this.duration,
       width: data.width.present ? data.width.value : this.width,
       height: data.height.present ? data.height.value : this.height,
+      perceptualHash: data.perceptualHash.present
+          ? data.perceptualHash.value
+          : this.perceptualHash,
     );
   }
 
@@ -443,7 +485,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('duration: $duration, ')
           ..write('width: $width, ')
-          ..write('height: $height')
+          ..write('height: $height, ')
+          ..write('perceptualHash: $perceptualHash')
           ..write(')'))
         .toString();
   }
@@ -460,6 +503,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     duration,
     width,
     height,
+    perceptualHash,
   );
   @override
   bool operator ==(Object other) =>
@@ -474,7 +518,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           other.thumbnailPath == this.thumbnailPath &&
           other.duration == this.duration &&
           other.width == this.width &&
-          other.height == this.height);
+          other.height == this.height &&
+          other.perceptualHash == this.perceptualHash);
 }
 
 class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
@@ -488,6 +533,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
   final Value<int?> duration;
   final Value<int> width;
   final Value<int> height;
+  final Value<String?> perceptualHash;
   const MediaItemsCompanion({
     this.id = const Value.absent(),
     this.fileHash = const Value.absent(),
@@ -499,6 +545,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     this.duration = const Value.absent(),
     this.width = const Value.absent(),
     this.height = const Value.absent(),
+    this.perceptualHash = const Value.absent(),
   });
   MediaItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -511,6 +558,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     this.duration = const Value.absent(),
     this.width = const Value.absent(),
     this.height = const Value.absent(),
+    this.perceptualHash = const Value.absent(),
   }) : fileHash = Value(fileHash),
        hashedFileName = Value(hashedFileName),
        mediaFolderPath = Value(mediaFolderPath),
@@ -527,6 +575,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Expression<int>? duration,
     Expression<int>? width,
     Expression<int>? height,
+    Expression<String>? perceptualHash,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -539,6 +588,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       if (duration != null) 'duration': duration,
       if (width != null) 'width': width,
       if (height != null) 'height': height,
+      if (perceptualHash != null) 'perceptual_hash': perceptualHash,
     });
   }
 
@@ -553,6 +603,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Value<int?>? duration,
     Value<int>? width,
     Value<int>? height,
+    Value<String?>? perceptualHash,
   }) {
     return MediaItemsCompanion(
       id: id ?? this.id,
@@ -565,6 +616,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       duration: duration ?? this.duration,
       width: width ?? this.width,
       height: height ?? this.height,
+      perceptualHash: perceptualHash ?? this.perceptualHash,
     );
   }
 
@@ -601,6 +653,9 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     if (height.present) {
       map['height'] = Variable<int>(height.value);
     }
+    if (perceptualHash.present) {
+      map['perceptual_hash'] = Variable<String>(perceptualHash.value);
+    }
     return map;
   }
 
@@ -616,7 +671,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('duration: $duration, ')
           ..write('width: $width, ')
-          ..write('height: $height')
+          ..write('height: $height, ')
+          ..write('perceptualHash: $perceptualHash')
           ..write(')'))
         .toString();
   }
@@ -1023,12 +1079,341 @@ class MediaTagsCompanion extends UpdateCompanion<MediaTag> {
   }
 }
 
+class $PendingReviewsTable extends PendingReviews
+    with TableInfo<$PendingReviewsTable, PendingReview> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingReviewsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _uploadedItemIdMeta = const VerificationMeta(
+    'uploadedItemId',
+  );
+  @override
+  late final GeneratedColumn<int> uploadedItemId = GeneratedColumn<int>(
+    'uploaded_item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES media_items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _matchedItemIdMeta = const VerificationMeta(
+    'matchedItemId',
+  );
+  @override
+  late final GeneratedColumn<int> matchedItemId = GeneratedColumn<int>(
+    'matched_item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES media_items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _similarityPercentMeta = const VerificationMeta(
+    'similarityPercent',
+  );
+  @override
+  late final GeneratedColumn<double> similarityPercent =
+      GeneratedColumn<double>(
+        'similarity_percent',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: true,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    uploadedItemId,
+    matchedItemId,
+    similarityPercent,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_reviews';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingReview> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uploaded_item_id')) {
+      context.handle(
+        _uploadedItemIdMeta,
+        uploadedItemId.isAcceptableOrUnknown(
+          data['uploaded_item_id']!,
+          _uploadedItemIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_uploadedItemIdMeta);
+    }
+    if (data.containsKey('matched_item_id')) {
+      context.handle(
+        _matchedItemIdMeta,
+        matchedItemId.isAcceptableOrUnknown(
+          data['matched_item_id']!,
+          _matchedItemIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_matchedItemIdMeta);
+    }
+    if (data.containsKey('similarity_percent')) {
+      context.handle(
+        _similarityPercentMeta,
+        similarityPercent.isAcceptableOrUnknown(
+          data['similarity_percent']!,
+          _similarityPercentMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_similarityPercentMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingReview map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingReview(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      uploadedItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}uploaded_item_id'],
+      )!,
+      matchedItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}matched_item_id'],
+      )!,
+      similarityPercent: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}similarity_percent'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingReviewsTable createAlias(String alias) {
+    return $PendingReviewsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingReview extends DataClass implements Insertable<PendingReview> {
+  final int id;
+  final int uploadedItemId;
+  final int matchedItemId;
+  final double similarityPercent;
+  const PendingReview({
+    required this.id,
+    required this.uploadedItemId,
+    required this.matchedItemId,
+    required this.similarityPercent,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uploaded_item_id'] = Variable<int>(uploadedItemId);
+    map['matched_item_id'] = Variable<int>(matchedItemId);
+    map['similarity_percent'] = Variable<double>(similarityPercent);
+    return map;
+  }
+
+  PendingReviewsCompanion toCompanion(bool nullToAbsent) {
+    return PendingReviewsCompanion(
+      id: Value(id),
+      uploadedItemId: Value(uploadedItemId),
+      matchedItemId: Value(matchedItemId),
+      similarityPercent: Value(similarityPercent),
+    );
+  }
+
+  factory PendingReview.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingReview(
+      id: serializer.fromJson<int>(json['id']),
+      uploadedItemId: serializer.fromJson<int>(json['uploadedItemId']),
+      matchedItemId: serializer.fromJson<int>(json['matchedItemId']),
+      similarityPercent: serializer.fromJson<double>(json['similarityPercent']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uploadedItemId': serializer.toJson<int>(uploadedItemId),
+      'matchedItemId': serializer.toJson<int>(matchedItemId),
+      'similarityPercent': serializer.toJson<double>(similarityPercent),
+    };
+  }
+
+  PendingReview copyWith({
+    int? id,
+    int? uploadedItemId,
+    int? matchedItemId,
+    double? similarityPercent,
+  }) => PendingReview(
+    id: id ?? this.id,
+    uploadedItemId: uploadedItemId ?? this.uploadedItemId,
+    matchedItemId: matchedItemId ?? this.matchedItemId,
+    similarityPercent: similarityPercent ?? this.similarityPercent,
+  );
+  PendingReview copyWithCompanion(PendingReviewsCompanion data) {
+    return PendingReview(
+      id: data.id.present ? data.id.value : this.id,
+      uploadedItemId: data.uploadedItemId.present
+          ? data.uploadedItemId.value
+          : this.uploadedItemId,
+      matchedItemId: data.matchedItemId.present
+          ? data.matchedItemId.value
+          : this.matchedItemId,
+      similarityPercent: data.similarityPercent.present
+          ? data.similarityPercent.value
+          : this.similarityPercent,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingReview(')
+          ..write('id: $id, ')
+          ..write('uploadedItemId: $uploadedItemId, ')
+          ..write('matchedItemId: $matchedItemId, ')
+          ..write('similarityPercent: $similarityPercent')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, uploadedItemId, matchedItemId, similarityPercent);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingReview &&
+          other.id == this.id &&
+          other.uploadedItemId == this.uploadedItemId &&
+          other.matchedItemId == this.matchedItemId &&
+          other.similarityPercent == this.similarityPercent);
+}
+
+class PendingReviewsCompanion extends UpdateCompanion<PendingReview> {
+  final Value<int> id;
+  final Value<int> uploadedItemId;
+  final Value<int> matchedItemId;
+  final Value<double> similarityPercent;
+  const PendingReviewsCompanion({
+    this.id = const Value.absent(),
+    this.uploadedItemId = const Value.absent(),
+    this.matchedItemId = const Value.absent(),
+    this.similarityPercent = const Value.absent(),
+  });
+  PendingReviewsCompanion.insert({
+    this.id = const Value.absent(),
+    required int uploadedItemId,
+    required int matchedItemId,
+    required double similarityPercent,
+  }) : uploadedItemId = Value(uploadedItemId),
+       matchedItemId = Value(matchedItemId),
+       similarityPercent = Value(similarityPercent);
+  static Insertable<PendingReview> custom({
+    Expression<int>? id,
+    Expression<int>? uploadedItemId,
+    Expression<int>? matchedItemId,
+    Expression<double>? similarityPercent,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uploadedItemId != null) 'uploaded_item_id': uploadedItemId,
+      if (matchedItemId != null) 'matched_item_id': matchedItemId,
+      if (similarityPercent != null) 'similarity_percent': similarityPercent,
+    });
+  }
+
+  PendingReviewsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? uploadedItemId,
+    Value<int>? matchedItemId,
+    Value<double>? similarityPercent,
+  }) {
+    return PendingReviewsCompanion(
+      id: id ?? this.id,
+      uploadedItemId: uploadedItemId ?? this.uploadedItemId,
+      matchedItemId: matchedItemId ?? this.matchedItemId,
+      similarityPercent: similarityPercent ?? this.similarityPercent,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uploadedItemId.present) {
+      map['uploaded_item_id'] = Variable<int>(uploadedItemId.value);
+    }
+    if (matchedItemId.present) {
+      map['matched_item_id'] = Variable<int>(matchedItemId.value);
+    }
+    if (similarityPercent.present) {
+      map['similarity_percent'] = Variable<double>(similarityPercent.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingReviewsCompanion(')
+          ..write('id: $id, ')
+          ..write('uploadedItemId: $uploadedItemId, ')
+          ..write('matchedItemId: $matchedItemId, ')
+          ..write('similarityPercent: $similarityPercent')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $MediaItemsTable mediaItems = $MediaItemsTable(this);
   late final $TagsTable tags = $TagsTable(this);
   late final $MediaTagsTable mediaTags = $MediaTagsTable(this);
+  late final $PendingReviewsTable pendingReviews = $PendingReviewsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1037,7 +1422,25 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     mediaItems,
     tags,
     mediaTags,
+    pendingReviews,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'media_items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('pending_reviews', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'media_items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('pending_reviews', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$MediaItemsTableCreateCompanionBuilder =
@@ -1052,6 +1455,7 @@ typedef $$MediaItemsTableCreateCompanionBuilder =
       Value<int?> duration,
       Value<int> width,
       Value<int> height,
+      Value<String?> perceptualHash,
     });
 typedef $$MediaItemsTableUpdateCompanionBuilder =
     MediaItemsCompanion Function({
@@ -1065,6 +1469,7 @@ typedef $$MediaItemsTableUpdateCompanionBuilder =
       Value<int?> duration,
       Value<int> width,
       Value<int> height,
+      Value<String?> perceptualHash,
     });
 
 final class $$MediaItemsTableReferences
@@ -1084,6 +1489,50 @@ final class $$MediaItemsTableReferences
     ).filter((f) => f.mediaId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_mediaTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$PendingReviewsTable, List<PendingReview>>
+  _uploadedItemReviewsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.pendingReviews,
+    aliasName: $_aliasNameGenerator(
+      db.mediaItems.id,
+      db.pendingReviews.uploadedItemId,
+    ),
+  );
+
+  $$PendingReviewsTableProcessedTableManager get uploadedItemReviews {
+    final manager = $$PendingReviewsTableTableManager(
+      $_db,
+      $_db.pendingReviews,
+    ).filter((f) => f.uploadedItemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _uploadedItemReviewsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$PendingReviewsTable, List<PendingReview>>
+  _matchedItemReviewsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.pendingReviews,
+    aliasName: $_aliasNameGenerator(
+      db.mediaItems.id,
+      db.pendingReviews.matchedItemId,
+    ),
+  );
+
+  $$PendingReviewsTableProcessedTableManager get matchedItemReviews {
+    final manager = $$PendingReviewsTableTableManager(
+      $_db,
+      $_db.pendingReviews,
+    ).filter((f) => f.matchedItemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_matchedItemReviewsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -1149,6 +1598,11 @@ class $$MediaItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get perceptualHash => $composableBuilder(
+    column: $table.perceptualHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> mediaTagsRefs(
     Expression<bool> Function($$MediaTagsTableFilterComposer f) f,
   ) {
@@ -1165,6 +1619,56 @@ class $$MediaItemsTableFilterComposer
           }) => $$MediaTagsTableFilterComposer(
             $db: $db,
             $table: $db.mediaTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> uploadedItemReviews(
+    Expression<bool> Function($$PendingReviewsTableFilterComposer f) f,
+  ) {
+    final $$PendingReviewsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pendingReviews,
+      getReferencedColumn: (t) => t.uploadedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PendingReviewsTableFilterComposer(
+            $db: $db,
+            $table: $db.pendingReviews,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> matchedItemReviews(
+    Expression<bool> Function($$PendingReviewsTableFilterComposer f) f,
+  ) {
+    final $$PendingReviewsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pendingReviews,
+      getReferencedColumn: (t) => t.matchedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PendingReviewsTableFilterComposer(
+            $db: $db,
+            $table: $db.pendingReviews,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -1233,6 +1737,11 @@ class $$MediaItemsTableOrderingComposer
     column: $table.height,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get perceptualHash => $composableBuilder(
+    column: $table.perceptualHash,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MediaItemsTableAnnotationComposer
@@ -1282,6 +1791,11 @@ class $$MediaItemsTableAnnotationComposer
   GeneratedColumn<int> get height =>
       $composableBuilder(column: $table.height, builder: (column) => column);
 
+  GeneratedColumn<String> get perceptualHash => $composableBuilder(
+    column: $table.perceptualHash,
+    builder: (column) => column,
+  );
+
   Expression<T> mediaTagsRefs<T extends Object>(
     Expression<T> Function($$MediaTagsTableAnnotationComposer a) f,
   ) {
@@ -1306,6 +1820,56 @@ class $$MediaItemsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> uploadedItemReviews<T extends Object>(
+    Expression<T> Function($$PendingReviewsTableAnnotationComposer a) f,
+  ) {
+    final $$PendingReviewsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pendingReviews,
+      getReferencedColumn: (t) => t.uploadedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PendingReviewsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.pendingReviews,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> matchedItemReviews<T extends Object>(
+    Expression<T> Function($$PendingReviewsTableAnnotationComposer a) f,
+  ) {
+    final $$PendingReviewsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pendingReviews,
+      getReferencedColumn: (t) => t.matchedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PendingReviewsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.pendingReviews,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$MediaItemsTableTableManager
@@ -1321,7 +1885,11 @@ class $$MediaItemsTableTableManager
           $$MediaItemsTableUpdateCompanionBuilder,
           (MediaItem, $$MediaItemsTableReferences),
           MediaItem,
-          PrefetchHooks Function({bool mediaTagsRefs})
+          PrefetchHooks Function({
+            bool mediaTagsRefs,
+            bool uploadedItemReviews,
+            bool matchedItemReviews,
+          })
         > {
   $$MediaItemsTableTableManager(_$AppDatabase db, $MediaItemsTable table)
     : super(
@@ -1346,6 +1914,7 @@ class $$MediaItemsTableTableManager
                 Value<int?> duration = const Value.absent(),
                 Value<int> width = const Value.absent(),
                 Value<int> height = const Value.absent(),
+                Value<String?> perceptualHash = const Value.absent(),
               }) => MediaItemsCompanion(
                 id: id,
                 fileHash: fileHash,
@@ -1357,6 +1926,7 @@ class $$MediaItemsTableTableManager
                 duration: duration,
                 width: width,
                 height: height,
+                perceptualHash: perceptualHash,
               ),
           createCompanionCallback:
               ({
@@ -1370,6 +1940,7 @@ class $$MediaItemsTableTableManager
                 Value<int?> duration = const Value.absent(),
                 Value<int> width = const Value.absent(),
                 Value<int> height = const Value.absent(),
+                Value<String?> perceptualHash = const Value.absent(),
               }) => MediaItemsCompanion.insert(
                 id: id,
                 fileHash: fileHash,
@@ -1381,6 +1952,7 @@ class $$MediaItemsTableTableManager
                 duration: duration,
                 width: width,
                 height: height,
+                perceptualHash: perceptualHash,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -1390,36 +1962,89 @@ class $$MediaItemsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({mediaTagsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (mediaTagsRefs) db.mediaTags],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (mediaTagsRefs)
-                    await $_getPrefetchedData<
-                      MediaItem,
-                      $MediaItemsTable,
-                      MediaTag
-                    >(
-                      currentTable: table,
-                      referencedTable: $$MediaItemsTableReferences
-                          ._mediaTagsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$MediaItemsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).mediaTagsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.mediaId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                mediaTagsRefs = false,
+                uploadedItemReviews = false,
+                matchedItemReviews = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (mediaTagsRefs) db.mediaTags,
+                    if (uploadedItemReviews) db.pendingReviews,
+                    if (matchedItemReviews) db.pendingReviews,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (mediaTagsRefs)
+                        await $_getPrefetchedData<
+                          MediaItem,
+                          $MediaItemsTable,
+                          MediaTag
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MediaItemsTableReferences
+                              ._mediaTagsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MediaItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).mediaTagsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.mediaId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (uploadedItemReviews)
+                        await $_getPrefetchedData<
+                          MediaItem,
+                          $MediaItemsTable,
+                          PendingReview
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MediaItemsTableReferences
+                              ._uploadedItemReviewsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MediaItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).uploadedItemReviews,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.uploadedItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (matchedItemReviews)
+                        await $_getPrefetchedData<
+                          MediaItem,
+                          $MediaItemsTable,
+                          PendingReview
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MediaItemsTableReferences
+                              ._matchedItemReviewsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MediaItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchedItemReviews,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.matchedItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -1436,7 +2061,11 @@ typedef $$MediaItemsTableProcessedTableManager =
       $$MediaItemsTableUpdateCompanionBuilder,
       (MediaItem, $$MediaItemsTableReferences),
       MediaItem,
-      PrefetchHooks Function({bool mediaTagsRefs})
+      PrefetchHooks Function({
+        bool mediaTagsRefs,
+        bool uploadedItemReviews,
+        bool matchedItemReviews,
+      })
     >;
 typedef $$TagsTableCreateCompanionBuilder =
     TagsCompanion Function({Value<int> id, required String name});
@@ -1998,6 +2627,404 @@ typedef $$MediaTagsTableProcessedTableManager =
       MediaTag,
       PrefetchHooks Function({bool mediaId, bool tagId})
     >;
+typedef $$PendingReviewsTableCreateCompanionBuilder =
+    PendingReviewsCompanion Function({
+      Value<int> id,
+      required int uploadedItemId,
+      required int matchedItemId,
+      required double similarityPercent,
+    });
+typedef $$PendingReviewsTableUpdateCompanionBuilder =
+    PendingReviewsCompanion Function({
+      Value<int> id,
+      Value<int> uploadedItemId,
+      Value<int> matchedItemId,
+      Value<double> similarityPercent,
+    });
+
+final class $$PendingReviewsTableReferences
+    extends BaseReferences<_$AppDatabase, $PendingReviewsTable, PendingReview> {
+  $$PendingReviewsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MediaItemsTable _uploadedItemIdTable(_$AppDatabase db) =>
+      db.mediaItems.createAlias(
+        $_aliasNameGenerator(
+          db.pendingReviews.uploadedItemId,
+          db.mediaItems.id,
+        ),
+      );
+
+  $$MediaItemsTableProcessedTableManager get uploadedItemId {
+    final $_column = $_itemColumn<int>('uploaded_item_id')!;
+
+    final manager = $$MediaItemsTableTableManager(
+      $_db,
+      $_db.mediaItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_uploadedItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $MediaItemsTable _matchedItemIdTable(_$AppDatabase db) =>
+      db.mediaItems.createAlias(
+        $_aliasNameGenerator(db.pendingReviews.matchedItemId, db.mediaItems.id),
+      );
+
+  $$MediaItemsTableProcessedTableManager get matchedItemId {
+    final $_column = $_itemColumn<int>('matched_item_id')!;
+
+    final manager = $$MediaItemsTableTableManager(
+      $_db,
+      $_db.mediaItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_matchedItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PendingReviewsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingReviewsTable> {
+  $$PendingReviewsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get similarityPercent => $composableBuilder(
+    column: $table.similarityPercent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MediaItemsTableFilterComposer get uploadedItemId {
+    final $$MediaItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.uploadedItemId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$MediaItemsTableFilterComposer get matchedItemId {
+    final $$MediaItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.matchedItemId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PendingReviewsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingReviewsTable> {
+  $$PendingReviewsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get similarityPercent => $composableBuilder(
+    column: $table.similarityPercent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MediaItemsTableOrderingComposer get uploadedItemId {
+    final $$MediaItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.uploadedItemId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$MediaItemsTableOrderingComposer get matchedItemId {
+    final $$MediaItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.matchedItemId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PendingReviewsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingReviewsTable> {
+  $$PendingReviewsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<double> get similarityPercent => $composableBuilder(
+    column: $table.similarityPercent,
+    builder: (column) => column,
+  );
+
+  $$MediaItemsTableAnnotationComposer get uploadedItemId {
+    final $$MediaItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.uploadedItemId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$MediaItemsTableAnnotationComposer get matchedItemId {
+    final $$MediaItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.matchedItemId,
+      referencedTable: $db.mediaItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MediaItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mediaItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PendingReviewsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingReviewsTable,
+          PendingReview,
+          $$PendingReviewsTableFilterComposer,
+          $$PendingReviewsTableOrderingComposer,
+          $$PendingReviewsTableAnnotationComposer,
+          $$PendingReviewsTableCreateCompanionBuilder,
+          $$PendingReviewsTableUpdateCompanionBuilder,
+          (PendingReview, $$PendingReviewsTableReferences),
+          PendingReview,
+          PrefetchHooks Function({bool uploadedItemId, bool matchedItemId})
+        > {
+  $$PendingReviewsTableTableManager(
+    _$AppDatabase db,
+    $PendingReviewsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingReviewsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingReviewsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingReviewsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> uploadedItemId = const Value.absent(),
+                Value<int> matchedItemId = const Value.absent(),
+                Value<double> similarityPercent = const Value.absent(),
+              }) => PendingReviewsCompanion(
+                id: id,
+                uploadedItemId: uploadedItemId,
+                matchedItemId: matchedItemId,
+                similarityPercent: similarityPercent,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int uploadedItemId,
+                required int matchedItemId,
+                required double similarityPercent,
+              }) => PendingReviewsCompanion.insert(
+                id: id,
+                uploadedItemId: uploadedItemId,
+                matchedItemId: matchedItemId,
+                similarityPercent: similarityPercent,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PendingReviewsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({uploadedItemId = false, matchedItemId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (uploadedItemId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.uploadedItemId,
+                                    referencedTable:
+                                        $$PendingReviewsTableReferences
+                                            ._uploadedItemIdTable(db),
+                                    referencedColumn:
+                                        $$PendingReviewsTableReferences
+                                            ._uploadedItemIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (matchedItemId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.matchedItemId,
+                                    referencedTable:
+                                        $$PendingReviewsTableReferences
+                                            ._matchedItemIdTable(db),
+                                    referencedColumn:
+                                        $$PendingReviewsTableReferences
+                                            ._matchedItemIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$PendingReviewsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingReviewsTable,
+      PendingReview,
+      $$PendingReviewsTableFilterComposer,
+      $$PendingReviewsTableOrderingComposer,
+      $$PendingReviewsTableAnnotationComposer,
+      $$PendingReviewsTableCreateCompanionBuilder,
+      $$PendingReviewsTableUpdateCompanionBuilder,
+      (PendingReview, $$PendingReviewsTableReferences),
+      PendingReview,
+      PrefetchHooks Function({bool uploadedItemId, bool matchedItemId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2007,4 +3034,6 @@ class $AppDatabaseManager {
   $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
   $$MediaTagsTableTableManager get mediaTags =>
       $$MediaTagsTableTableManager(_db, _db.mediaTags);
+  $$PendingReviewsTableTableManager get pendingReviews =>
+      $$PendingReviewsTableTableManager(_db, _db.pendingReviews);
 }

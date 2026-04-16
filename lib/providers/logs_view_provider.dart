@@ -31,9 +31,9 @@ class LogsViewProvider extends ChangeNotifier {
     });
   }
 
-  void toggleLogsView() {
-    _isShowingLogs = !_isShowingLogs;
-    if (isShowingLogs) {
+  void setLogsVisible(bool visible) {
+    _isShowingLogs = visible;
+    if (visible) {
       _unseenWarningCount = 0;
       _unseenErrorCount = 0;
     } else {

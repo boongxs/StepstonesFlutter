@@ -15,6 +15,7 @@ import 'services/media_action_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'constants.dart';
 import 'package:stepstones_flt/controllers/settings_controller.dart';
+import 'providers/review_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // initialize flutter engine
@@ -52,12 +53,18 @@ void main() async {
           context.read<GalleryController>(),
         )),
 
+        ChangeNotifierProvider(create: (context) => ReviewProvider(
+          getIt<AppDatabase>(),
+          context.read<GalleryController>(),
+        )),
+
         ChangeNotifierProvider(
           create: (context) => SyncController(
-            getIt<AppDatabase>(), 
-            context.read<SessionController>(), 
-            context.read<GalleryController>(), 
+            getIt<AppDatabase>(),
+            context.read<SessionController>(),
+            context.read<GalleryController>(),
             context.read<StatusCardProvider>(),
+            context.read<ReviewProvider>(),
           ),
           lazy: false,
         ),

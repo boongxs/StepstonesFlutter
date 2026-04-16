@@ -13,7 +13,9 @@ import '../services/file_picker_service.dart';
 import '../utils/media_helper.dart';
 import '../utils/metadata_helper.dart';
 import '../utils/thumbnail_helper.dart';
+import '../utils/phash_helper.dart';
 import '../providers/status_card_provider.dart';
+import '../providers/review_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
 import '../services/bundle_import_service.dart';
@@ -26,6 +28,7 @@ class SyncController extends ChangeNotifier {
   final SessionController session;
   final GalleryController gallery;
   final StatusCardProvider jobStatus;
+  final ReviewProvider reviewProvider;
 
   final FileService _fileService = getIt<FileService>();
   final FilePickerService _filePickerService = getIt<FilePickerService>();
@@ -35,7 +38,7 @@ class SyncController extends ChangeNotifier {
 
   String? _previousPath;
 
-  SyncController(this.db, this.session, this.gallery, this.jobStatus) {
+  SyncController(this.db, this.session, this.gallery, this.jobStatus, this.reviewProvider) {
     session.addListener(() {
       if (session.mediaFolderPath != _previousPath) {
         _previousPath = session.mediaFolderPath;
@@ -52,6 +55,7 @@ class SyncController extends ChangeNotifier {
     }
   }
 
+  // --- ANDROID ---
   void _initIntentListener() {
     // listen to media shared while app is running in background
     ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
@@ -96,7 +100,6 @@ class SyncController extends ChangeNotifier {
     ReceiveSharingIntent.instance.reset();
   }
 
-  // --- actions ---
   Future<void> uploadFiles() async {
     if (session.mediaFolderPath == null) {
       LogService.w("No media folder selected.");
@@ -161,6 +164,7 @@ class SyncController extends ChangeNotifier {
       }
 
       await _validateThumbnails(folderPath);
+      await _backfillPerceptualHashes(folderPath);
     } catch (e) {
       LogService.e("Sync failed.", e);
       hasError = true;
@@ -207,12 +211,11 @@ class SyncController extends ChangeNotifier {
       // update status card subtitle
       jobStatus.updateProgress(fileName);
 
-      // copy / import
       CopyResponse response;
       if (isImport) {
-        response = await _fileService.importFile(sourcePath);
+        response = await _fileService.importFile(sourcePath); // regular upload
       } else {
-        response = await _fileService.copyFile(sourcePath, folderPath);
+        response = await _fileService.copyFile(sourcePath, folderPath); // orphan upload
       }
 
       // DB insert / thumbnail generation
@@ -249,7 +252,11 @@ class SyncController extends ChangeNotifier {
             thumbnailPath: drift.Value(thumb),
           );
 
-          await db.insertMediaItem(entry);
+          final insertedId = await db.insertMediaItem(entry);
+
+          if (type == "image") {
+            await _checkPerceptualDuplicates(insertedId, finalPath, folderPath);
+          }
         } catch (e) {
           if (e is SqliteException && e.extendedResultCode == 2067) {
             LogService.i("Duplicate database entry skipped: $fileName");
@@ -540,6 +547,12 @@ class SyncController extends ChangeNotifier {
           if (data["tags"] != null && data["tags"].toString().isNotEmpty) {
             await db.updateMediaTags(insertedId, data["tags"]);
           }
+
+          final fileType = data["fileType"] ?? "unknown";
+          if (fileType == "image") {
+            final mediaPath = p.join(destFolder, hashedFileName);
+            await _checkPerceptualDuplicates(insertedId, mediaPath, destFolder);
+          }
         } catch (e) {
           LogService.e("Failed to insert media item into database: $hashedFileName", e);
         }
@@ -554,6 +567,52 @@ class SyncController extends ChangeNotifier {
     jobStatus.finishJob("Bundle import complete");
     LogService.i("Bundle import complete.");
     notifyListeners();
+  }
+
+  Future<void> _checkPerceptualDuplicates(int uploadedId, String filePath, String folderPath) async {
+    final hash = await PhashHelper.computePhash(filePath);
+    if (hash == null) {
+      LogService.w("Could not compute perceptual hash for $filePath — skipping similarity check.");
+      return;
+    }
+
+    await db.updatePerceptualHash(uploadedId, PhashHelper.hashToString(hash));
+
+    final existing = await db.getItemsWithPhash(folderPath);
+    int flagged = 0;
+
+    for (final item in existing) {
+      if (item.id == uploadedId) continue;
+      final existingHash = PhashHelper.hashFromString(item.perceptualHash!);
+      if (existingHash == null) continue;
+
+      final sim = PhashHelper.similarity(hash, existingHash);
+      if (sim >= 95.0) {
+        await db.insertPendingReview(uploadedId, item.id, sim);
+        flagged++;
+      }
+    }
+
+    if (flagged > 0) {
+      LogService.i("Flagged $flagged potential duplicate(s) for review.");
+    }
+  }
+
+  Future<void> _backfillPerceptualHashes(String folderPath) async {
+    final items = await db.getItemsNeedingPhash(folderPath);
+    if (items.isEmpty) return;
+
+    int successCount = 0;
+    for (final item in items) {
+      final sourcePath = p.join(folderPath, item.hashedFileName);
+      final hash = await PhashHelper.computePhash(sourcePath);
+      if (hash != null) {
+        await db.updatePerceptualHash(item.id, PhashHelper.hashToString(hash));
+        successCount++;
+      }
+    }
+
+    LogService.i("Backfilled perceptual hash for $successCount/${items.length} image items.");
   }
 
   Future<bool> _hasEnoughSpace(double requiredMB, String targetPath) async {

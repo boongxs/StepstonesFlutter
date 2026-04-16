@@ -5,6 +5,7 @@ import '../widgets/sync_status_card.dart';
 import '../widgets/media_grid.dart';
 import '../widgets/selection_mode_card.dart';
 import '../widgets/logs_viewer.dart';
+import '../widgets/review_view.dart';
 import '../providers/logs_view_provider.dart';
 import '../controllers/selection_controller.dart';
 import '../controllers/gallery_controller.dart';
@@ -14,12 +15,28 @@ import '../widgets/main_toolbar.dart';
 import '../widgets/library_header.dart';
 import '../widgets/settings_dialog.dart';
 
-class MainScreenDesktop extends StatelessWidget {
+class MainScreenDesktop extends StatefulWidget {
   const MainScreenDesktop({super.key});
 
   @override
+  State<MainScreenDesktop> createState() => _MainScreenDesktopState();
+}
+
+class _MainScreenDesktopState extends State<MainScreenDesktop> {
+  ActiveView _activeView = ActiveView.mediaGrid;
+
+  void _onViewChanged(ActiveView view) {
+    final logsProvider = context.read<LogsViewProvider>();
+    if (_activeView == ActiveView.logs && view != ActiveView.logs) {
+      logsProvider.setLogsVisible(false);
+    } else if (view == ActiveView.logs && _activeView != ActiveView.logs) {
+      logsProvider.setLogsVisible(true);
+    }
+    setState(() => _activeView = view);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isShowingLogs = context.watch<LogsViewProvider>().isShowingLogs;
     final isSelectionMode = context
         .watch<SelectionController>()
         .isSelectionMode;
@@ -52,17 +69,20 @@ class MainScreenDesktop extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // --- ACTION BUTTONS ROW ---
-                  const MainToolbar(),
+                  MainToolbar(
+                    activeView: _activeView,
+                    onViewChanged: _onViewChanged,
+                  ),
 
                   const SizedBox(height: 20),
 
                   // --- FOLDER INFO & STORAGE STATUS ROW ---
-                  if (!isShowingLogs) const LibraryHeader(),
+                  if (_activeView == ActiveView.mediaGrid) const LibraryHeader(),
 
                   // --- MAIN CONTENT AREA ---
                   Expanded(
                     child: IndexedStack(
-                      index: isShowingLogs ? 1 : 0,
+                      index: _activeView.index,
                       children: [
                         MediaGrid(),
                         LogsViewer(
@@ -70,6 +90,7 @@ class MainScreenDesktop extends StatelessWidget {
                               .read<LogsViewProvider>()
                               .lastSeenLogCount,
                         ),
+                        const ReviewView(),
                       ],
                     ),
                   ),
