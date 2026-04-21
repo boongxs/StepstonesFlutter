@@ -4,6 +4,7 @@ import '../providers/logs_view_provider.dart';
 import '../controllers/gallery_controller.dart';
 import '../controllers/session_controller.dart';
 import '../controllers/sync_controller.dart';
+import '../controllers/upload_controller.dart';
 import '../controllers/selection_controller.dart';
 import '../providers/review_provider.dart';
 
@@ -21,10 +22,10 @@ class MainToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer3<LogsViewProvider, GalleryController, ReviewProvider>(
-      builder: (context, logs, gallery, review, child) {
+    return Consumer4<LogsViewProvider, GalleryController, ReviewProvider, SyncController>(
+      builder: (context, logs, gallery, review, sync, child) {
         final sessionAction = context.read<SessionController>();
-        final syncAction = context.read<SyncController>();
+        final uploadAction = context.read<UploadController>();
         final selectionAction = context.read<SelectionController>();
         final isOnMediaGrid = activeView == ActiveView.mediaGrid;
 
@@ -45,7 +46,7 @@ class MainToolbar extends StatelessWidget {
             _ActionButton(
               icon: Icons.upload_file,
               tooltip: "Upload Files",
-              onPressed: isOnMediaGrid ? syncAction.uploadFiles : null,
+              onPressed: isOnMediaGrid ? uploadAction.uploadFiles : null,
             ),
 
             const SizedBox(width: 10),
@@ -54,7 +55,7 @@ class MainToolbar extends StatelessWidget {
             _ActionButton(
               icon: Icons.refresh,
               tooltip: "Refresh App",
-              onPressed: isOnMediaGrid ? syncAction.performFullSync : null,
+              onPressed: (isOnMediaGrid && !sync.isSyncing) ? sync.performFullSync : null,
             ),
 
             const SizedBox(width: 10),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants.dart';
-import '../widgets/sync_status_card.dart';
+import '../widgets/job_status_card.dart';
 import '../widgets/media_grid.dart';
 import '../widgets/selection_mode_card.dart';
 import '../widgets/logs_viewer.dart';
@@ -99,17 +99,24 @@ class _MainScreenDesktopState extends State<MainScreenDesktop> {
             ),
           ),
 
-          // --- SYNC / JOB STATUS CARD ---
+          // --- SYNC / JOB STATUS CARDS ---
           Positioned(
             bottom: 20,
             right: 20,
             child: Consumer<StatusCardProvider>(
               builder: (context, status, _) {
-                return SyncStatusCard(
-                  text: status.title,
-                  subtext: status.subtitle,
-                  isVisible: status.isVisible,
-                  isLoading: status.isLoading,
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: status.jobs.map((job) => Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SyncStatusCard(
+                      text: job.title,
+                      subtext: job.subtitle.isNotEmpty ? job.subtitle : null,
+                      isVisible: job.isVisible,
+                      isLoading: job.isLoading,
+                    ),
+                  )).toList(),
                 );
               },
             ),

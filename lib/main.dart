@@ -4,6 +4,7 @@ import 'package:stepstones_flt/controllers/gallery_controller.dart';
 import 'package:stepstones_flt/controllers/selection_controller.dart';
 import 'package:stepstones_flt/controllers/session_controller.dart';
 import 'package:stepstones_flt/controllers/sync_controller.dart';
+import 'package:stepstones_flt/controllers/upload_controller.dart';
 import 'package:stepstones_flt/data/app_database.dart';
 import 'package:stepstones_flt/providers/status_card_provider.dart';
 import 'providers/logs_view_provider.dart';
@@ -58,13 +59,20 @@ void main() async {
           context.read<GalleryController>(),
         )),
 
+        ChangeNotifierProvider(create: (context) => UploadController(
+          getIt<AppDatabase>(),
+          context.read<SessionController>(),
+          context.read<GalleryController>(),
+          context.read<StatusCardProvider>(),
+        )),
+
         ChangeNotifierProvider(
           create: (context) => SyncController(
             getIt<AppDatabase>(),
             context.read<SessionController>(),
             context.read<GalleryController>(),
             context.read<StatusCardProvider>(),
-            context.read<ReviewProvider>(),
+            context.read<UploadController>(),
           ),
           lazy: false,
         ),

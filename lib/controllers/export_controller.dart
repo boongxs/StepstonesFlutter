@@ -42,28 +42,28 @@ class ExportController {
     if (savePath == null) return ExportResult.cancelled();
 
     // 2. start packing to selected destination
-    status.startJob("Packing media items...");
+    final jobId = status.startJob("Packing media items...");
     LogService.i("Creating bundle at: $savePath");
 
     try {
       final successPath = await BundleService.createBundle(
         itemsToExport,
         outputPath: savePath,
-        onProgress: (fileName) => status.updateProgress(fileName),
+        onProgress: (fileName) => status.updateProgress(jobId, fileName),
       );
 
       if (successPath == null) {
         await _cleanupFailedBundle(savePath);
-        status.finishJob("Packing failed", isError: true);
+        status.finishJob(jobId, "Packing failed", isError: true);
         return ExportResult.error("Failed to construct the bundle.");
       }
 
-      status.finishJob("Bundle saved successfully");
+      status.finishJob(jobId, "Bundle saved successfully");
       return ExportResult.success();
     } catch (e) {
       LogService.e("Exception during bundle creation", e);
       await _cleanupFailedBundle(savePath);
-      status.finishJob("Packing failed", isError: true);
+      status.finishJob(jobId, "Packing failed", isError: true);
 
       return ExportResult.error("An error occurred while packing: $e");
     }
@@ -82,23 +82,23 @@ class ExportController {
     final savePath = p.join(tempDirPath, "SharedCollection.stepstone");
 
     // start packing
-    status.startJob("Packing media items...");
+    final jobId = status.startJob("Packing media items...");
     LogService.i("Creating temporary bundle at: $savePath");
 
     try {
       final successPath = await BundleService.createBundle(
         itemsToExport,
         outputPath: savePath,
-        onProgress: (fileName) => status.updateProgress(fileName),
+        onProgress: (fileName) => status.updateProgress(jobId, fileName),
       );
 
       if (successPath == null) {
         await _cleanupFailedBundle(savePath);
-        status.finishJob("Packing failed", isError: true);
+        status.finishJob(jobId, "Packing failed", isError: true);
         return ExportResult.error("Failed to construct bundle.");
       }
 
-      status.finishJob("Bundle ready.");
+      status.finishJob(jobId, "Bundle ready.");
 
       // immediately trigger Android Share Sheet with finished file
       await SharePlus.instance.share(
@@ -112,7 +112,7 @@ class ExportController {
     } catch (e) {
       LogService.e("Exception during bundle creation", e);
       await _cleanupFailedBundle(savePath);
-      status.finishJob("Packing failed", isError: true);
+      status.finishJob(jobId, "Packing failed", isError: true);
 
       return ExportResult.error("An error occurred while packing: $e");
     }

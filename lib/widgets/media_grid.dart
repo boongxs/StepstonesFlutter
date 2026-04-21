@@ -30,7 +30,7 @@ class MediaGrid extends StatelessWidget {
       );
     }
 
-    if (totalItemCount == 0 && !status.isLoading) {
+    if (totalItemCount == 0 && !status.jobs.any((j) => j.isLoading)) {
       return const Center(
         child: Text(
           "No media items found"

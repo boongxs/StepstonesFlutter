@@ -81,7 +81,7 @@ Future<CopyResponse> _copyAndHashInBackground(CopyRequest request) async {
 }
 
 class FileService {
-  Future<CopyResponse> copyFile(String sourcePath, String destFolder) async {
+  Future<CopyResponse> hashAndCopyFile(String sourcePath, String destFolder) async {
     try {
       final result = await compute(
         _copyAndHashInBackground,
@@ -117,7 +117,7 @@ class FileService {
   }
 
   // hashes an existing file in the library and renames it to {hash}.ext
-  Future<CopyResponse> importFile(String filePath) async {
+  Future<CopyResponse> hashAndRenameInPlace(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) return CopyResponse(CopyResult.failure);
