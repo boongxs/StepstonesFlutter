@@ -23,12 +23,23 @@ class MediaViewerDialog extends StatefulWidget {
 class _MediaViewerDialogState extends State<MediaViewerDialog> {
   late int _currentIndex;
   late FocusNode _focusNode;
+  late TransformationController _transformationController;
+  double _zoomLevel = 1.0;
+  Size _displaySize = Size.zero;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _focusNode = FocusNode();
+    _transformationController = TransformationController();
+
+    _transformationController.addListener(() {
+      final scale = _transformationController.value.getMaxScaleOnAxis().clamp(1.0, 4.0);
+      if ((scale - _zoomLevel).abs() > 0.01) {
+        setState(() => _zoomLevel = scale);
+      }
+    });
 
     // request focus when dialog opens so that keyboard events can be captured
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -39,6 +50,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _transformationController.dispose();
 
     imageCache.clear();
     imageCache.clearLiveImages();
@@ -46,8 +58,24 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     super.dispose();
   }
 
+  void _setZoom(double zoom) {
+    final cx = _displaySize.width / 2;
+    final cy = _displaySize.height / 2;
+    _transformationController.value = Matrix4.identity()
+      ..translateByDouble(cx, cy, 0, 1)
+      ..scaleByDouble(zoom, zoom, 1, 1)
+      ..translateByDouble(-cx, -cy, 0, 1);
+    setState(() => _zoomLevel = zoom);
+  }
+
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
+    _zoomLevel = 1.0;
+  }
+
   void _goToPrevious() {
     if (_currentIndex > 0) {
+      _resetZoom();
       setState(() => _currentIndex--);
     }
   }
@@ -56,6 +84,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     final totalCount = context.read<GalleryController>().totalItemCount;
 
     if (_currentIndex < totalCount - 1) {
+      _resetZoom();
       setState(() => _currentIndex++);
     }
   }
@@ -103,13 +132,15 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
           item.height,
           maxAvailableSize
         );
+        _displaySize = displaySize;
 
         final fullPath = p.join(item.mediaFolderPath, item.hashedFileName);
+        final isImageOrGif = item.fileType == 'image' || item.fileType == 'gif';
 
         // build content
         Widget contentWidget;
 
-        if (item.fileType == 'image' || item.fileType == 'gif') {
+        if (isImageOrGif) {
           contentWidget = Image.file(
             File(fullPath),
             key: ValueKey(item.id),
@@ -166,7 +197,16 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                 ],
                               ),
                               clipBehavior: Clip.antiAlias,
-                              child: contentWidget,
+                              child: isImageOrGif
+                                  ? InteractiveViewer(
+                                      transformationController: _transformationController,
+                                      minScale: 1.0,
+                                      maxScale: 4.0,
+                                      panEnabled: _zoomLevel > 1.0,
+                                      boundaryMargin: EdgeInsets.zero,
+                                      child: contentWidget,
+                                    )
+                                  : contentWidget,
                             ),
                           ),
                         ),
@@ -270,9 +310,24 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                 },
                               ),
 
-                              const SizedBox(width: 16),
+                              if (isImageOrGif) ...[
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 120,
+                                  child: Slider(
+                                    value: _zoomLevel,
+                                    min: 1.0,
+                                    max: 4.0,
+                                    onChanged: _setZoom,
+                                  ),
+                                ),
+                                Text(
+                                  "${_zoomLevel.toStringAsFixed(1)}x",
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                                const SizedBox(width: 16),
+                              ],
 
-                              // close button
                               Container(
                                 width: 1,
                                 height: 24,
