@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../data/app_database.dart';
 import '../providers/review_provider.dart';
+import 'media_preview_dialog.dart';
 
 class ReviewView extends StatelessWidget {
   const ReviewView({super.key});
@@ -83,6 +85,7 @@ class ReviewView extends StatelessWidget {
                       Expanded(
                         child: _FilePanel(
                           label: "Uploaded file",
+                          item: uploaded,
                           thumbnailPath: review.uploadedThumbnailPath,
                           fileName: uploaded?.hashedFileName ?? "—",
                           detail: null,
@@ -92,6 +95,7 @@ class ReviewView extends StatelessWidget {
                       Expanded(
                         child: _FilePanel(
                           label: "Possible duplicate",
+                          item: matched,
                           thumbnailPath: review.matchedThumbnailPath,
                           fileName: matched?.hashedFileName ?? "—",
                           detail: similarity != null
@@ -163,12 +167,14 @@ class ReviewView extends StatelessWidget {
 
 class _FilePanel extends StatelessWidget {
   final String label;
+  final MediaItem? item;
   final String? thumbnailPath;
   final String fileName;
   final String? detail;
 
   const _FilePanel({
     required this.label,
+    required this.item,
     required this.thumbnailPath,
     required this.fileName,
     required this.detail,
@@ -188,28 +194,38 @@ class _FilePanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 250, maxHeight: 250),
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF2a2a2a),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.white12),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: thumbnailPath != null
-                  ? Image.file(
-                      File(thumbnailPath!),
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, stack) => const Center(
-                        child: Icon(Icons.broken_image, color: Colors.white24, size: 40),
-                      ),
+        MouseRegion(
+          cursor: item != null ? SystemMouseCursors.click : MouseCursor.defer,
+          child: GestureDetector(
+            onTap: item != null
+                ? () => showDialog(
+                      context: context,
+                      builder: (_) => MediaPreviewDialog(item: item!),
                     )
-                  : const Center(
-                      child: Icon(Icons.image_outlined, color: Colors.white24, size: 40),
-                    ),
+                : null,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 250, maxHeight: 250),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2a2a2a),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: thumbnailPath != null
+                      ? Image.file(
+                          File(thumbnailPath!),
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, err, stack) => const Center(
+                            child: Icon(Icons.broken_image, color: Colors.white24, size: 40),
+                          ),
+                        )
+                      : const Center(
+                          child: Icon(Icons.image_outlined, color: Colors.white24, size: 40),
+                        ),
+                ),
+              ),
             ),
           ),
         ),
