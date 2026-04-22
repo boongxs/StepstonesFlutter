@@ -134,9 +134,6 @@ class GalleryController extends ChangeNotifier {
       _invalidateCache();
       await refreshLibrary();
 
-      // update disk space badge
-      await _session.updateDiskSpace();
-
       // restore scroll position
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (scrollController.hasClients) {

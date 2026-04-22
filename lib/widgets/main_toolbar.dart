@@ -22,12 +22,12 @@ class MainToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer4<LogsViewProvider, GalleryController, ReviewProvider, SyncController>(
-      builder: (context, logs, gallery, review, sync, child) {
+    return Consumer5<LogsViewProvider, GalleryController, ReviewProvider, SyncController, UploadController>(
+      builder: (context, logs, gallery, review, sync, upload, child) {
         final sessionAction = context.read<SessionController>();
-        final uploadAction = context.read<UploadController>();
         final selectionAction = context.read<SelectionController>();
         final isOnMediaGrid = activeView == ActiveView.mediaGrid;
+        final isBusy = sync.isSyncing || upload.isUploading;
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -37,7 +37,7 @@ class MainToolbar extends StatelessWidget {
             _ActionButton(
               icon: Icons.folder,
               tooltip: "Select Media Folder",
-              onPressed: isOnMediaGrid ? sessionAction.selectFolder : null,
+              onPressed: (isOnMediaGrid && !isBusy) ? sessionAction.selectFolder : null,
             ),
 
             const SizedBox(width: 10),
@@ -46,7 +46,7 @@ class MainToolbar extends StatelessWidget {
             _ActionButton(
               icon: Icons.upload_file,
               tooltip: "Upload Files",
-              onPressed: isOnMediaGrid ? uploadAction.uploadFiles : null,
+              onPressed: (isOnMediaGrid && !sync.isSyncing) ? upload.uploadFiles : null,
             ),
 
             const SizedBox(width: 10),
@@ -55,7 +55,7 @@ class MainToolbar extends StatelessWidget {
             _ActionButton(
               icon: Icons.refresh,
               tooltip: "Refresh App",
-              onPressed: (isOnMediaGrid && !sync.isSyncing) ? sync.performFullSync : null,
+              onPressed: (isOnMediaGrid && !isBusy) ? sync.performFullSync : null,
             ),
 
             const SizedBox(width: 10),

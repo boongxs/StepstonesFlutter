@@ -18,8 +18,15 @@ import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
 import '../services/bundle_import_service.dart';
-import 'package:disk_space_2/disk_space_2.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+
+enum _QueueItemType { upload, bundle, orphan }
+
+class _QueueItem {
+  final String path;
+  final _QueueItemType type;
+  _QueueItem(this.path, this.type);
+}
 
 class UploadController extends ChangeNotifier {
   final AppDatabase db;
@@ -32,6 +39,7 @@ class UploadController extends ChangeNotifier {
 
   final List<_QueueItem> _uploadQueue = [];
   bool _isUploading = false;
+  bool get isUploading => _isUploading;
 
   UploadController(this.db, this.session, this.gallery, this.jobStatus) {
     if (Platform.isAndroid || Platform.isIOS) {
@@ -39,271 +47,250 @@ class UploadController extends ChangeNotifier {
     }
   }
 
-  /// Subscribes to both the background share stream and the cold-start initial media intent.
+  /// Sets up two listeners for files shared to the app from Android share sheet.
+  /// Both listeners feed into [_handleSharedFiles]
   void _initIntentListener() {
+    // background stream, fires whenever app receives a share intent while already running
     ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
       _handleSharedFiles(value);
     }, onError: (err) {
       LogService.e("Share intent stream error: $err");
     });
 
+    // cold-start, fires when user shares to the app when it wasn't running
     ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
       _handleSharedFiles(value);
     });
   }
 
-  /// Routes files received from the OS share sheet — bundles go to [_handleBundleImport], media files to the upload queue.
+  /// Routes files received from the OS share sheet into the upload queue.
+  /// Bundles and media files are enqueued with their respective types and processed in order.
   Future<void> _handleSharedFiles(List<SharedMediaFile> sharedFiles) async {
     if (sharedFiles.isEmpty) return;
 
-    while (session.mediaFolderPath == null) {
-      await Future.delayed(const Duration(milliseconds: 100));
+    // Wait for SessionController to finish loading mediaFolderPath from storage.
+    await session.ready;
+
+    final paths = <String>[];
+    for (final sharedFile in sharedFiles) {
+      paths.add(sharedFile.path);
     }
 
-    final paths = sharedFiles.map((f) => f.path).toList();
-    final bundleFiles = paths.where((f) => p.extension(f).toLowerCase() == ".stepstone").toList();
-    final mediaFiles = paths.where((f) => p.extension(f).toLowerCase() != ".stepstone").toList();
-
-    for (final bundlePath in bundleFiles) {
-      _handleBundleImport(bundlePath);
+    for (final path in paths) {
+      final isBundle = p.extension(path).toLowerCase() == ".stepstone";
+      _uploadQueue.add(_QueueItem(path, isBundle ? _QueueItemType.bundle : _QueueItemType.upload));
     }
 
-    if (mediaFiles.isNotEmpty) {
-      final jobId = jobStatus.startJob("Receiving shared files...");
-      jobStatus.updateProgress(jobId, "${mediaFiles.length} file(s) queued...");
-      _uploadQueue.addAll(mediaFiles.map((path) => _QueueItem(path, jobId)));
-      notifyListeners();
+    // only start the queue if it isn't already running
+    if (!_isUploading) _processUploadQueue();
 
-      if (!_isUploading) {
-        _processUploadQueue();
-      }
-    }
-
+    // reset share intent so it's not handled again on next app resume or restart
     ReceiveSharingIntent.instance.reset();
   }
 
-  /// Opens the file picker, checks available disk space, then enqueues selected media files for upload.
-  /// Bundles (.stepstone) picked alongside media files are imported first before the queue starts.
+  /// Opens the file picker and enqueues selected files.
+  /// Bundles (.stepstone) and media files are queued together and dispatched by type.
   Future<void> uploadFiles() async {
+    // can't upload files if uploaded files have nowhere to go (no selected media folder)
     if (session.mediaFolderPath == null) {
       LogService.w("No media folder selected.");
       return;
     }
 
+    // open file picker
     final files = await _filePickerService.pickMediaFiles();
     if (files == null || files.isEmpty) return;
 
-    final bundleFiles = files.where((f) => p.extension(f).toLowerCase() == ".stepstone").toList();
-    final mediaFiles = files.where((f) => p.extension(f).toLowerCase() != ".stepstone").toList();
-
-    for (final bundlePath in bundleFiles) {
-      await _handleBundleImport(bundlePath);
+    for (final path in files) {
+      final isBundle = p.extension(path).toLowerCase() == ".stepstone";
+      _uploadQueue.add(_QueueItem(path, isBundle ? _QueueItemType.bundle : _QueueItemType.upload));
     }
 
-    if (mediaFiles.isEmpty) return;
-
-    final jobId = jobStatus.startJob("Uploading files...");
-
-    // disk space check
-    final folderPath = session.mediaFolderPath!;
-    double totalBytes = 0;
-    for (final path in mediaFiles) {
-      final file = File(path);
-      if (await file.exists()) totalBytes += await file.length();
-    }
-    final hasSpace = await _hasEnoughSpace(totalBytes / (1024 * 1024), folderPath);
-    if (!hasSpace) {
-      jobStatus.finishJob(jobId, "Insufficient disk space", isError: true);
-      notifyListeners();
-      return;
-    }
-
-    jobStatus.updateProgress(jobId, "${mediaFiles.length} file(s) queued...");
-    _uploadQueue.addAll(mediaFiles.map((path) => _QueueItem(path, jobId)));
-    notifyListeners();
-
-    if (!_isUploading) {
-      _processUploadQueue();
-    }
+    // if not already running, start the queue
+    if (!_isUploading) _processUploadQueue();
   }
 
-  /// Enqueues orphan [files] (already on disk) and starts the pipeline if not already running.
-  /// [onWaiting] is called every ~50ms with the count of non-orphan items still ahead in the queue,
-  /// allowing callers to show a countdown on their own status card.
-  /// Called by SyncController when orphan files are discovered. No disk space check needed — orphans are already on disk.
-  Future<void> enqueueAndProcess(
-    List<String> files, {
-    void Function(int remaining)? onWaiting,
-  }) async {
-    _uploadQueue.addAll(files.map((path) => _QueueItem(path, null)));
-    if (!_isUploading) {
-      await _processUploadQueue();
-    } else {
-      // Queue already running; wait for it to drain before returning so
-      // SyncController doesn't advance to thumbnail/hash steps prematurely.
-      while (_isUploading) {
-        final ahead = _uploadQueue.where((i) => i.jobId != null).length;
-        onWaiting?.call(ahead);
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
-      onWaiting?.call(0);
+  /// Enqueues orphan [files] (already on disk) silently and awaits full queue drain.
+  /// Called by SyncController after ghost cleanup; awaited so sync doesn't advance until all orphans are in the DB.
+  Future<void> enqueueAndProcess(List<String> files) async {
+    for (final path in files) {
+      _uploadQueue.add(_QueueItem(path, _QueueItemType.orphan));
     }
+    if (!_isUploading) await _processUploadQueue();
   }
 
-  /// Drains the upload queue one file at a time: copies the file, infers its type, generates a thumbnail, and inserts the DB record.
-  /// Each queued item carries its own job ID; progress and completion are reported per-job automatically.
+  /// Drains the upload queue, dispatching each item to the appropriate handler based on its type.
   Future<void> _processUploadQueue() async {
     _isUploading = true;
-    final folderPath = session.mediaFolderPath!;
+    notifyListeners(); // disable select folder and refresh buttons (reads _isUploading state)
+
+    bool hadVisibleItems = false;
+    bool cardStarted = false;
 
     while (_uploadQueue.isNotEmpty) {
       final item = _uploadQueue.removeAt(0);
-      final sourcePath = item.path;
-      final jobId = item.jobId;
-      final fileName = p.basename(sourcePath);
-      final isImport = p.isWithin(folderPath, sourcePath);
 
-      if (jobId != null) jobStatus.updateProgress(jobId, fileName);
-
-      CopyResponse response;
-      if (isImport) {
-        response = await _fileService.hashAndRenameInPlace(sourcePath); // orphans (inside media folder)
-      } else {
-        response = await _fileService.hashAndCopyFile(sourcePath, folderPath); // regular upload (outside media folder)
-      }
-
-      if (response.status == CopyResult.success) {
-        try {
-          final finalPath = p.join(folderPath, response.finalFileName!);
-
-          var type = await MediaHelper.inferFileType(finalPath);
-          final metadata = await MetadataHelper.extractMetadata(finalPath, type);
-
-          if (type == "video" && metadata.width == 0 && metadata.height == 0) {
-            type = "audio";
-            LogService.i("Audio-only video file detected. Reclassifying as audio: ${response.finalFileName}");
+      switch (item.type) {
+        case _QueueItemType.upload:
+          if (!cardStarted) { 
+            jobStatus.startJob("Uploading files..."); 
+            cardStarted = true; 
+          } else { 
+            jobStatus.updateTitle("Uploading files..."); 
           }
 
-          final thumb = await ThumbnailHelper.generateThumbnail(
-            sourcePath: finalPath,
-            fileType: type,
-            fileHash: response.hash!,
-            durationMs: metadata.durationMs,
-          );
+          hadVisibleItems = true;
 
-          final entry = MediaItemsCompanion(
-            fileHash: drift.Value(response.hash!),
-            hashedFileName: drift.Value(response.finalFileName!),
-            mediaFolderPath: drift.Value(folderPath),
-            originalFileName: drift.Value(fileName),
-            fileType: drift.Value(type),
-            width: drift.Value(metadata.width),
-            height: drift.Value(metadata.height),
-            duration: drift.Value(metadata.durationMs),
-            thumbnailPath: drift.Value(thumb),
-          );
+          jobStatus.updateSubtitle(p.basename(item.path));
+          await _processFile(item.path, inPlace: false);
 
-          final insertedId = await db.insertMediaItem(entry);
-
-          if (type == "image") {
-            await _checkPerceptualDuplicates(insertedId, finalPath, folderPath);
+        case _QueueItemType.bundle:
+          if (!cardStarted) { 
+            jobStatus.startJob("Unpacking bundle..."); 
+            cardStarted = true; 
+          } else { 
+            jobStatus.updateTitle("Unpacking bundle..."); 
           }
-        } catch (e) {
-          if (e is SqliteException && e.extendedResultCode == 2067) {
-            LogService.i("Duplicate database entry skipped: $fileName");
-          } else {
-            LogService.e("Failed to insert media item into database: $fileName", e);
-          }
-        }
-      } else if (response.status == CopyResult.duplicate) {
-        LogService.i("Duplicate file on disk skipped: $fileName");
-      } else {
-        LogService.w("Failed to copy file: $fileName");
-      }
 
-      // Finish this job's card when its last item has been processed
-      if (jobId != null && !_uploadQueue.any((i) => i.jobId == jobId)) {
-        jobStatus.finishJob(jobId, "Upload complete");
+          hadVisibleItems = true;
+
+          jobStatus.updateSubtitle("");
+          await _handleBundleImport(item.path);
+
+        case _QueueItemType.orphan:
+          await _processFile(item.path, inPlace: true);
       }
     }
 
     await gallery.fullRefresh(resetScroll: false);
-    session.updateDiskSpace();
+
+    if (hadVisibleItems) jobStatus.finishJob("Upload complete");
 
     _isUploading = false;
-    LogService.i("Queue empty. Upload complete.");
-    notifyListeners();
+    notifyListeners(); // enable select folder and reload buttons
   }
 
-  /// Unpacks a .stepstone bundle, copies its media and thumbnails into the library, and inserts DB records with tags.
+  /// Copies or renames a single file into the media folder, generates metadata, thumbnail, and DB record.
+  /// [inPlace] = true for orphans already inside the media folder (rename only); false for external uploads (copy).
+  Future<void> _processFile(String sourcePath, {required bool inPlace}) async {
+    final folderPath = session.mediaFolderPath!; // destination folder 
+    final fileName = p.basename(sourcePath); // original filename
+
+    // rename the file to a unique hash
+    final CopyResponse response;
+    if (inPlace) {
+      response = await _fileService.hashAndRenameInPlace(sourcePath); // only rename to unique hash
+    } else {
+      response = await _fileService.hashAndCopyFile(sourcePath, folderPath); // rename and copy to current media folder
+    }
+
+    // at this point the current file is in media folder and renamed
+    if (response.status == CopyResult.success) {
+      try {
+        final finalPath = p.join(folderPath, response.finalFileName!);
+
+        // file metadata extraction
+        var type = await MediaHelper.inferFileType(finalPath); // get file type (image/video/GIF/audio/unknown)
+        final metadata = await MetadataHelper.extractMetadata(finalPath, type); // extract width, height, duration
+
+        // if file is "video" type and contains no video track, reclassify as "audio" file
+        if (type == "video" && metadata.width == 0 && metadata.height == 0) {
+          type = "audio";
+          LogService.i("Audio-only video file detected. Reclassifying as audio: ${response.finalFileName}");
+        }
+
+        // generate a thumbnail for file
+        final thumb = await ThumbnailHelper.generateThumbnail(
+          sourcePath: finalPath,
+          fileType: type,
+          fileHash: response.hash!,
+          durationMs: metadata.durationMs,
+        );
+
+        // insert a record into database for file
+        final entry = MediaItemsCompanion(
+          fileHash: drift.Value(response.hash!),
+          hashedFileName: drift.Value(response.finalFileName!),
+          mediaFolderPath: drift.Value(folderPath),
+          originalFileName: drift.Value(fileName),
+          fileType: drift.Value(type),
+          width: drift.Value(metadata.width),
+          height: drift.Value(metadata.height),
+          duration: drift.Value(metadata.durationMs),
+          thumbnailPath: drift.Value(thumb),
+        );
+
+        final insertedId = await db.insertMediaItem(entry);
+
+        // if file is "image" type, run a potential duplicate check
+        if (type == "image") {
+          await _checkPerceptualDuplicates(insertedId, finalPath, folderPath);
+        }
+      } catch (e) {
+        if (e is SqliteException && e.extendedResultCode == 2067) {
+          LogService.i("Duplicate database entry skipped: $fileName");
+        } else {
+          LogService.e("Failed to insert media item into database: $fileName", e);
+        }
+      }
+    } else if (response.status == CopyResult.duplicate) {
+      LogService.i("Duplicate file on disk skipped: $fileName");
+    } else {
+      LogService.w("Failed to copy file: $fileName");
+    }
+  }
+
+  /// Unpacks a .stepstone bundle and imports its contents into the library.
+  /// Updates the shared status card title/subtitle; does not manage card lifecycle (caller's responsibility).
   Future<void> _handleBundleImport(String bundlePath) async {
     final destFolder = session.mediaFolderPath;
     if (destFolder == null) return;
 
-    final jobId = jobStatus.startJob("Unpacking bundle...");
-    notifyListeners();
-
-    final bundleFile = File(bundlePath);
-    if (await bundleFile.exists()) {
-      final bundleBytes = await bundleFile.length();
-      final bundleMB = bundleBytes / (1024 * 1024);
-
-      // multiply by 2.2 = unpacked temp folder + final copied files + buffer
-      final requiredMB = bundleMB * 2.2;
-
-      final hasSpace = await _hasEnoughSpace(requiredMB, destFolder);
-      if (!hasSpace) {
-        jobStatus.finishJob(jobId, "Insufficient disk space for bundle", isError: true);
-        notifyListeners();
-        return;
-      }
-    }
-
+    // unpack everything from bundle file into a temp directory
     final unpackedPath = await BundleImportService.unpackBundle(bundlePath);
     if (unpackedPath == null) {
-      jobStatus.finishJob(jobId, "Unpack failed", isError: true);
-      notifyListeners();
       return;
     }
 
+    // read JSON file and parse it into a Map
     final metadata = await BundleImportService.readMetadata(unpackedPath);
     if (metadata == null) {
-      jobStatus.finishJob(jobId, "Invalid bundle metadata", isError: true);
-      notifyListeners();
       await BundleImportService.cleanup(unpackedPath);
       return;
     }
 
+    // convert Map into a List
     final itemsToImport = metadata.entries.toList();
-    if (itemsToImport.isEmpty) {
-      jobStatus.finishJob(jobId, "Bundle is empty");
-      await BundleImportService.cleanup(unpackedPath);
-      return;
-    }
 
-    jobStatus.updateJobTitle(jobId, "Processing bundle...");
-    notifyListeners();
+    jobStatus.updateTitle("Processing bundle...");
 
+    // build paths to the two subfolders inside the unpacked folder
     final mediaDir = p.join(unpackedPath, "media");
     final thumbsDir = p.join(unpackedPath, "thumbs");
 
+    // build destination folder for thumbnail files
     final supportPath = session.appSupportPath;
     final systemThumbsDir = supportPath != null ? p.join(supportPath, AppConstants.thumbnailDirectory) : null;
 
+    // main loop to process unpacked media files one by one
     for (final entry in itemsToImport) {
-      final hashedFileName = entry.key;
+      // unpack key (filename) and value (metadata map)
+      final hashedFileName = entry.key; 
       final data = entry.value as Map<String, dynamic>;
 
-      jobStatus.updateProgress(jobId, hashedFileName);
+      // update subtitle to current file being processed
+      jobStatus.updateSubtitle(hashedFileName);
 
       final sourceMedia = p.join(mediaDir, hashedFileName);
       final destMedia = p.join(destFolder, hashedFileName);
 
+      // guards to prevent duplicate database insert
       bool isSuccess = true;
       bool isDuplicate = false;
 
-      if (await File(sourceMedia).exists()) {
-        if (!await File(destMedia).exists()) {
+      // copy media file from unpackedPath to media folder
+      if (await File(sourceMedia).exists()) { // does the file from unpacked bundle exist? is in manifest but doesn't have to be on disk
+        if (!await File(destMedia).exists()) { // is a file with this filename already in media folder?
           await compute(_copyFileInBackground, [sourceMedia, destMedia]);
         } else {
           isDuplicate = true;
@@ -314,8 +301,9 @@ class UploadController extends ChangeNotifier {
         LogService.w("Import warning: file listed in metadata but missing in bundle: $hashedFileName");
       }
 
+      // copy media file's thumbnail file from unpackedPath to thumbnails folder
       final thumbPath = data["thumbnailPath"] as String?;
-      if (thumbPath != null && systemThumbsDir != null) {
+      if (isSuccess && !isDuplicate && thumbPath != null && systemThumbsDir != null) {
         final sourceThumb = p.join(thumbsDir, thumbPath);
         final destThumb = p.join(systemThumbsDir, thumbPath);
 
@@ -327,8 +315,10 @@ class UploadController extends ChangeNotifier {
         }
       }
 
+      // insert database record for media file
       if (isSuccess && !isDuplicate) {
         try {
+          // first insert the media item
           final companion = MediaItemsCompanion(
             fileHash: drift.Value(hashedFileName.split(".").first),
             hashedFileName: drift.Value(hashedFileName),
@@ -343,12 +333,13 @@ class UploadController extends ChangeNotifier {
 
           final insertedId = await db.insertMediaItem(companion);
 
+          // after that insert media item's tags to properly link the tags to the media item
           if (data["tags"] != null && data["tags"].toString().isNotEmpty) {
             await db.updateMediaTags(insertedId, data["tags"]);
           }
 
-          final fileType = data["fileType"] ?? "unknown";
-          if (fileType == "image") {
+          // for "image" type media items, check for potential duplicates
+          if (data["fileType"] == "image") {
             final mediaPath = p.join(destFolder, hashedFileName);
             await _checkPerceptualDuplicates(insertedId, mediaPath, destFolder);
           }
@@ -359,12 +350,7 @@ class UploadController extends ChangeNotifier {
     }
 
     await BundleImportService.cleanup(unpackedPath);
-    await gallery.fullRefresh();
-    session.updateDiskSpace();
-
-    jobStatus.finishJob(jobId, "Bundle import complete");
     LogService.i("Bundle import complete.");
-    notifyListeners();
   }
 
   /// Computes a perceptual hash for the newly uploaded image and flags any existing items above the 95% similarity threshold for review.
@@ -396,40 +382,11 @@ class UploadController extends ChangeNotifier {
       LogService.i("Flagged $flagged potential duplicate(s) for review.");
     }
   }
-
-  /// Returns true if [targetPath]'s drive has at least [requiredMB] + 200 MB free. Fails open if the OS cannot report disk space.
-  Future<bool> _hasEnoughSpace(double requiredMB, String targetPath) async {
-    try {
-      final freeSpaceMB = await DiskSpace.getFreeDiskSpaceForPath(targetPath);
-      if (freeSpaceMB == null) return true;
-
-      final safeRequiredMB = requiredMB + 200.0;
-
-      if (safeRequiredMB > freeSpaceMB) {
-        LogService.e("Insufficient disk space. Need: ${safeRequiredMB.toStringAsFixed(2)}MB, Free: ${freeSpaceMB.toStringAsFixed(2)}MB");
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      LogService.w("Could not check disk space for $targetPath: $e");
-      return true;
-    }
-  }
-}
-
-class _QueueItem {
-  final String path;
-  final int? jobId; // null = orphan (no status card update)
-  _QueueItem(this.path, this.jobId);
 }
 
 Future<void> _copyFileInBackground(List<String> paths) async {
-  final sourcePath = paths[0];
-  final destPath = paths[1];
-
-  final source = File(sourcePath);
+  final source = File(paths[0]);
   if (await source.exists()) {
-    await source.copy(destPath);
+    await source.copy(paths[1]);
   }
 }

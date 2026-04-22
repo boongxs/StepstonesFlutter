@@ -99,24 +99,17 @@ class _MainScreenDesktopState extends State<MainScreenDesktop> {
             ),
           ),
 
-          // --- SYNC / JOB STATUS CARDS ---
+          // --- SYNC / JOB STATUS CARD ---
           Positioned(
             bottom: 20,
             right: 20,
             child: Consumer<StatusCardProvider>(
               builder: (context, status, _) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: status.jobs.map((job) => Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: SyncStatusCard(
-                      text: job.title,
-                      subtext: job.subtitle.isNotEmpty ? job.subtitle : null,
-                      isVisible: job.isVisible,
-                      isLoading: job.isLoading,
-                    ),
-                  )).toList(),
+                return SyncStatusCard(
+                  text: status.title,
+                  subtext: status.subtitle.isNotEmpty ? status.subtitle : null,
+                  isVisible: status.isVisible,
+                  isLoading: status.isLoading,
                 );
               },
             ),
