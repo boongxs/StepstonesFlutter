@@ -131,6 +131,24 @@ class $MediaItemsTable extends MediaItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<String> date = GeneratedColumn<String>(
+    'date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _timeMeta = const VerificationMeta('time');
+  @override
+  late final GeneratedColumn<String> time = GeneratedColumn<String>(
+    'time',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -144,6 +162,8 @@ class $MediaItemsTable extends MediaItems
     width,
     height,
     perceptualHash,
+    date,
+    time,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -245,6 +265,18 @@ class $MediaItemsTable extends MediaItems
         ),
       );
     }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    }
+    if (data.containsKey('time')) {
+      context.handle(
+        _timeMeta,
+        time.isAcceptableOrUnknown(data['time']!, _timeMeta),
+      );
+    }
     return context;
   }
 
@@ -302,6 +334,14 @@ class $MediaItemsTable extends MediaItems
         DriftSqlType.string,
         data['${effectivePrefix}perceptual_hash'],
       ),
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}date'],
+      ),
+      time: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time'],
+      ),
     );
   }
 
@@ -323,6 +363,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
   final int width;
   final int height;
   final String? perceptualHash;
+  final String? date;
+  final String? time;
   const MediaItem({
     required this.id,
     required this.fileHash,
@@ -335,6 +377,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     required this.width,
     required this.height,
     this.perceptualHash,
+    this.date,
+    this.time,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -355,6 +399,12 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     map['height'] = Variable<int>(height);
     if (!nullToAbsent || perceptualHash != null) {
       map['perceptual_hash'] = Variable<String>(perceptualHash);
+    }
+    if (!nullToAbsent || date != null) {
+      map['date'] = Variable<String>(date);
+    }
+    if (!nullToAbsent || time != null) {
+      map['time'] = Variable<String>(time);
     }
     return map;
   }
@@ -378,6 +428,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       perceptualHash: perceptualHash == null && nullToAbsent
           ? const Value.absent()
           : Value(perceptualHash),
+      date: date == null && nullToAbsent ? const Value.absent() : Value(date),
+      time: time == null && nullToAbsent ? const Value.absent() : Value(time),
     );
   }
 
@@ -398,6 +450,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       width: serializer.fromJson<int>(json['width']),
       height: serializer.fromJson<int>(json['height']),
       perceptualHash: serializer.fromJson<String?>(json['perceptualHash']),
+      date: serializer.fromJson<String?>(json['date']),
+      time: serializer.fromJson<String?>(json['time']),
     );
   }
   @override
@@ -415,6 +469,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       'width': serializer.toJson<int>(width),
       'height': serializer.toJson<int>(height),
       'perceptualHash': serializer.toJson<String?>(perceptualHash),
+      'date': serializer.toJson<String?>(date),
+      'time': serializer.toJson<String?>(time),
     };
   }
 
@@ -430,6 +486,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     int? width,
     int? height,
     Value<String?> perceptualHash = const Value.absent(),
+    Value<String?> date = const Value.absent(),
+    Value<String?> time = const Value.absent(),
   }) => MediaItem(
     id: id ?? this.id,
     fileHash: fileHash ?? this.fileHash,
@@ -446,6 +504,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     perceptualHash: perceptualHash.present
         ? perceptualHash.value
         : this.perceptualHash,
+    date: date.present ? date.value : this.date,
+    time: time.present ? time.value : this.time,
   );
   MediaItem copyWithCompanion(MediaItemsCompanion data) {
     return MediaItem(
@@ -470,6 +530,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       perceptualHash: data.perceptualHash.present
           ? data.perceptualHash.value
           : this.perceptualHash,
+      date: data.date.present ? data.date.value : this.date,
+      time: data.time.present ? data.time.value : this.time,
     );
   }
 
@@ -486,7 +548,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           ..write('duration: $duration, ')
           ..write('width: $width, ')
           ..write('height: $height, ')
-          ..write('perceptualHash: $perceptualHash')
+          ..write('perceptualHash: $perceptualHash, ')
+          ..write('date: $date, ')
+          ..write('time: $time')
           ..write(')'))
         .toString();
   }
@@ -504,6 +568,8 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     width,
     height,
     perceptualHash,
+    date,
+    time,
   );
   @override
   bool operator ==(Object other) =>
@@ -519,7 +585,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           other.duration == this.duration &&
           other.width == this.width &&
           other.height == this.height &&
-          other.perceptualHash == this.perceptualHash);
+          other.perceptualHash == this.perceptualHash &&
+          other.date == this.date &&
+          other.time == this.time);
 }
 
 class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
@@ -534,6 +602,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
   final Value<int> width;
   final Value<int> height;
   final Value<String?> perceptualHash;
+  final Value<String?> date;
+  final Value<String?> time;
   const MediaItemsCompanion({
     this.id = const Value.absent(),
     this.fileHash = const Value.absent(),
@@ -546,6 +616,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     this.width = const Value.absent(),
     this.height = const Value.absent(),
     this.perceptualHash = const Value.absent(),
+    this.date = const Value.absent(),
+    this.time = const Value.absent(),
   });
   MediaItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -559,6 +631,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     this.width = const Value.absent(),
     this.height = const Value.absent(),
     this.perceptualHash = const Value.absent(),
+    this.date = const Value.absent(),
+    this.time = const Value.absent(),
   }) : fileHash = Value(fileHash),
        hashedFileName = Value(hashedFileName),
        mediaFolderPath = Value(mediaFolderPath),
@@ -576,6 +650,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Expression<int>? width,
     Expression<int>? height,
     Expression<String>? perceptualHash,
+    Expression<String>? date,
+    Expression<String>? time,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -589,6 +665,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       if (width != null) 'width': width,
       if (height != null) 'height': height,
       if (perceptualHash != null) 'perceptual_hash': perceptualHash,
+      if (date != null) 'date': date,
+      if (time != null) 'time': time,
     });
   }
 
@@ -604,6 +682,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Value<int>? width,
     Value<int>? height,
     Value<String?>? perceptualHash,
+    Value<String?>? date,
+    Value<String?>? time,
   }) {
     return MediaItemsCompanion(
       id: id ?? this.id,
@@ -617,6 +697,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       width: width ?? this.width,
       height: height ?? this.height,
       perceptualHash: perceptualHash ?? this.perceptualHash,
+      date: date ?? this.date,
+      time: time ?? this.time,
     );
   }
 
@@ -656,6 +738,12 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     if (perceptualHash.present) {
       map['perceptual_hash'] = Variable<String>(perceptualHash.value);
     }
+    if (date.present) {
+      map['date'] = Variable<String>(date.value);
+    }
+    if (time.present) {
+      map['time'] = Variable<String>(time.value);
+    }
     return map;
   }
 
@@ -672,7 +760,9 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
           ..write('duration: $duration, ')
           ..write('width: $width, ')
           ..write('height: $height, ')
-          ..write('perceptualHash: $perceptualHash')
+          ..write('perceptualHash: $perceptualHash, ')
+          ..write('date: $date, ')
+          ..write('time: $time')
           ..write(')'))
         .toString();
   }
@@ -1456,6 +1546,8 @@ typedef $$MediaItemsTableCreateCompanionBuilder =
       Value<int> width,
       Value<int> height,
       Value<String?> perceptualHash,
+      Value<String?> date,
+      Value<String?> time,
     });
 typedef $$MediaItemsTableUpdateCompanionBuilder =
     MediaItemsCompanion Function({
@@ -1470,6 +1562,8 @@ typedef $$MediaItemsTableUpdateCompanionBuilder =
       Value<int> width,
       Value<int> height,
       Value<String?> perceptualHash,
+      Value<String?> date,
+      Value<String?> time,
     });
 
 final class $$MediaItemsTableReferences
@@ -1600,6 +1694,16 @@ class $$MediaItemsTableFilterComposer
 
   ColumnFilters<String> get perceptualHash => $composableBuilder(
     column: $table.perceptualHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get time => $composableBuilder(
+    column: $table.time,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1742,6 +1846,16 @@ class $$MediaItemsTableOrderingComposer
     column: $table.perceptualHash,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get time => $composableBuilder(
+    column: $table.time,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MediaItemsTableAnnotationComposer
@@ -1795,6 +1909,12 @@ class $$MediaItemsTableAnnotationComposer
     column: $table.perceptualHash,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<String> get time =>
+      $composableBuilder(column: $table.time, builder: (column) => column);
 
   Expression<T> mediaTagsRefs<T extends Object>(
     Expression<T> Function($$MediaTagsTableAnnotationComposer a) f,
@@ -1915,6 +2035,8 @@ class $$MediaItemsTableTableManager
                 Value<int> width = const Value.absent(),
                 Value<int> height = const Value.absent(),
                 Value<String?> perceptualHash = const Value.absent(),
+                Value<String?> date = const Value.absent(),
+                Value<String?> time = const Value.absent(),
               }) => MediaItemsCompanion(
                 id: id,
                 fileHash: fileHash,
@@ -1927,6 +2049,8 @@ class $$MediaItemsTableTableManager
                 width: width,
                 height: height,
                 perceptualHash: perceptualHash,
+                date: date,
+                time: time,
               ),
           createCompanionCallback:
               ({
@@ -1941,6 +2065,8 @@ class $$MediaItemsTableTableManager
                 Value<int> width = const Value.absent(),
                 Value<int> height = const Value.absent(),
                 Value<String?> perceptualHash = const Value.absent(),
+                Value<String?> date = const Value.absent(),
+                Value<String?> time = const Value.absent(),
               }) => MediaItemsCompanion.insert(
                 id: id,
                 fileHash: fileHash,
@@ -1953,6 +2079,8 @@ class $$MediaItemsTableTableManager
                 width: width,
                 height: height,
                 perceptualHash: perceptualHash,
+                date: date,
+                time: time,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -21,6 +21,8 @@ class MediaItems extends Table {
   IntColumn get width => integer().withDefault(const Constant(0))();
   IntColumn get height => integer().withDefault(const Constant(0))();
   TextColumn get perceptualHash => text().nullable()();
+  TextColumn get date => text().nullable()();
+  TextColumn get time => text().nullable()();
 
   // helper to prevent duplicate entries: fileHash + mediaFolderPath must be unique
   @override
@@ -61,7 +63,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -77,6 +79,12 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(mediaItems, mediaItems.perceptualHash);
           }
           await m.createTable(pendingReviews);
+        }
+        if (from < 4) {
+          final cols = await customSelect('PRAGMA table_info("media_items")').get();
+          final names = cols.map((r) => r.read<String>('name')).toSet();
+          if (!names.contains('date')) await m.addColumn(mediaItems, mediaItems.date);
+          if (!names.contains('time')) await m.addColumn(mediaItems, mediaItems.time);
         }
       },
       // foreign key enforcement to ensure deleting a media item correctly executes
@@ -257,6 +265,14 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // --- Perceptual hash methods ---
+
+  Future<void> updateMediaDateTime(int id, String? date, String? time) {
+    return (update(mediaItems)..where((t) => t.id.equals(id)))
+        .write(MediaItemsCompanion(
+          date: Value(date),
+          time: Value(time),
+        ));
+  }
 
   Future<void> updatePerceptualHash(int id, String hash) {
     return (update(mediaItems)..where((t) => t.id.equals(id))).write(

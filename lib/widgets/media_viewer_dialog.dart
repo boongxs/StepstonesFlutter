@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import '../../data/app_database.dart';
+import '../../locator.dart';
 import '../services/media_action_service.dart';
 import 'universal_player.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +27,10 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   late TransformationController _transformationController;
   double _zoomLevel = 1.0;
   Size _displaySize = Size.zero;
+  bool _showInfoPanel = false;
+  String? _localDate;
+  String? _localTime;
+  int? _lastLoadedItemId;
 
   @override
   void initState() {
@@ -81,6 +86,67 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     FileImage(File(path)).evict();
   }
 
+  Future<void> _pickDate(MediaItem item) async {
+    DateTime initial;
+    try {
+      initial = _localDate != null ? DateTime.parse(_localDate!) : DateTime.now();
+    } catch (_) {
+      initial = DateTime.now();
+    }
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null) return;
+
+    final formatted =
+        '${picked.year.toString().padLeft(4, '0')}-'
+        '${picked.month.toString().padLeft(2, '0')}-'
+        '${picked.day.toString().padLeft(2, '0')}';
+    await getIt<AppDatabase>().updateMediaDateTime(item.id, formatted, _localTime);
+    if (!mounted) return;
+    setState(() => _localDate = formatted);
+    await context.read<GalleryController>().fullRefresh(resetScroll: false);
+  }
+
+  Future<void> _pickTime(MediaItem item) async {
+    TimeOfDay initial = TimeOfDay.now();
+    if (_localTime != null) {
+      final parts = _localTime!.split(':');
+      if (parts.length >= 2) {
+        initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+    }
+
+    final picked = await showTimePicker(context: context, initialTime: initial);
+    if (picked == null) return;
+
+    final formatted =
+        '${picked.hour.toString().padLeft(2, '0')}:'
+        '${picked.minute.toString().padLeft(2, '0')}';
+    await getIt<AppDatabase>().updateMediaDateTime(item.id, _localDate, formatted);
+    if (!mounted) return;
+    setState(() => _localTime = formatted);
+    await context.read<GalleryController>().fullRefresh(resetScroll: false);
+  }
+
+  Future<void> _clearDate(MediaItem item) async {
+    await getIt<AppDatabase>().updateMediaDateTime(item.id, null, _localTime);
+    if (!mounted) return;
+    setState(() => _localDate = null);
+    await context.read<GalleryController>().fullRefresh(resetScroll: false);
+  }
+
+  Future<void> _clearTime(MediaItem item) async {
+    await getIt<AppDatabase>().updateMediaDateTime(item.id, _localDate, null);
+    if (!mounted) return;
+    setState(() => _localTime = null);
+    await context.read<GalleryController>().fullRefresh(resetScroll: false);
+  }
+
   void _goToPrevious() {
     if (_currentIndex > 0) {
       _evictCurrentImage();
@@ -124,6 +190,13 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
           return const Center(
             child: CircularProgressIndicator(color: Colors.white),
           );
+        }
+
+        // sync local date/time when navigating to a different item
+        if (_lastLoadedItemId != item.id) {
+          _lastLoadedItemId = item.id;
+          _localDate = item.date;
+          _localTime = item.time;
         }
 
         // get screen size
@@ -338,6 +411,16 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                 const SizedBox(width: 16),
                               ],
 
+                              // info / date-time toggle
+                              _ToolbarButton(
+                                icon: _showInfoPanel ? Icons.info_rounded : Icons.info_outline_rounded,
+                                color: Colors.white70,
+                                tooltip: "Date & Time",
+                                onPressed: () => setState(() => _showInfoPanel = !_showInfoPanel),
+                              ),
+
+                              const SizedBox(width: 8),
+
                               Container(
                                 width: 1,
                                 height: 24,
@@ -355,6 +438,42 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                           ),
                         ),
                       ),
+
+                      // info panel (date & time)
+                      if (_showInfoPanel)
+                        Positioned(
+                          top: 88,
+                          right: 20,
+                          child: Container(
+                            width: 210,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _InfoRow(
+                                  label: "Date",
+                                  value: _localDate,
+                                  placeholder: "Not set",
+                                  onTap: () => _pickDate(item),
+                                  onClear: _localDate != null ? () => _clearDate(item) : null,
+                                ),
+                                const SizedBox(height: 8),
+                                _InfoRow(
+                                  label: "Time",
+                                  value: _localTime,
+                                  placeholder: "Not set",
+                                  onTap: () => _pickTime(item),
+                                  onClear: _localTime != null ? () => _clearTime(item) : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -400,6 +519,58 @@ Size _calculateOptimalSize(int dbWidth, int dbHeight, Size maxSize) {
   }
 
   return Size(w, h);
+}
+
+// private helper widget for date/time info panel rows
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String? value;
+  final String placeholder;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    required this.placeholder,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 40,
+              child: Text(
+                label,
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value ?? placeholder,
+                style: TextStyle(
+                  color: value != null ? Colors.white : Colors.white24,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            if (onClear != null)
+              GestureDetector(
+                onTap: onClear,
+                child: const Icon(Icons.close_rounded, size: 14, color: Colors.white38),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // private helper widget for media viewer's top-right toolbar
