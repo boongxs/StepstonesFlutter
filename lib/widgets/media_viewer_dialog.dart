@@ -73,8 +73,17 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     _zoomLevel = 1.0;
   }
 
+  void _evictCurrentImage() {
+    final item = context.read<GalleryController>().getItem(_currentIndex);
+    if (item == null) return;
+    if (item.fileType != 'image' && item.fileType != 'gif') return;
+    final path = p.join(item.mediaFolderPath, item.hashedFileName);
+    FileImage(File(path)).evict();
+  }
+
   void _goToPrevious() {
     if (_currentIndex > 0) {
+      _evictCurrentImage();
       _resetZoom();
       setState(() => _currentIndex--);
     }
@@ -84,6 +93,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     final totalCount = context.read<GalleryController>().totalItemCount;
 
     if (_currentIndex < totalCount - 1) {
+      _evictCurrentImage();
       _resetZoom();
       setState(() => _currentIndex++);
     }
