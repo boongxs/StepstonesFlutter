@@ -148,20 +148,37 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   }
 
   void _goToPrevious() {
-    if (_currentIndex > 0) {
+    final gallery = context.read<GalleryController>();
+    var newIndex = _currentIndex - 1;
+
+    while (newIndex >= 0) {
+      final candidate = gallery.getItem(newIndex);
+      if (candidate == null || candidate.fileType != 'unknown') break;
+      newIndex--;
+    }
+
+    if (newIndex >= 0) {
       _evictCurrentImage();
       _resetZoom();
-      setState(() => _currentIndex--);
+      setState(() => _currentIndex = newIndex);
     }
   }
 
   void _goToNext() {
-    final totalCount = context.read<GalleryController>().totalItemCount;
+    final gallery = context.read<GalleryController>();
+    final totalCount = gallery.totalItemCount;
+    var newIndex = _currentIndex + 1;
 
-    if (_currentIndex < totalCount - 1) {
+    while (newIndex < totalCount) {
+      final candidate = gallery.getItem(newIndex);
+      if (candidate == null || candidate.fileType != 'unknown') break;
+      newIndex++;
+    }
+
+    if (newIndex < totalCount) {
       _evictCurrentImage();
       _resetZoom();
-      setState(() => _currentIndex++);
+      setState(() => _currentIndex = newIndex);
     }
   }
 
