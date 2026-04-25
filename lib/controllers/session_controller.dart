@@ -5,6 +5,7 @@ import '../services/settings_service.dart';
 import '../locator.dart';
 import '../constants.dart';
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class SessionController extends ChangeNotifier {
@@ -37,9 +38,13 @@ class SessionController extends ChangeNotifier {
     _appSupportPath = AppConstants.appSupportPath;
 
     if (Platform.isAndroid || Platform.isIOS) {
-      // on mobile: sandbox library into internal app storage
+      // on mobile: sandbox library into internal app storage, in a subdirectory
+      // to avoid the sync controller picking up the SQLite database file
+      // (getApplicationDocumentsDirectory and getApplicationSupportDirectory
+      // resolve to the same path on Android)
       final dir = await getApplicationDocumentsDirectory();
-      _mediaFolderPath = dir.path;
+      _mediaFolderPath = p.join(dir.path, "media");
+      await Directory(_mediaFolderPath!).create(recursive: true);
     } else {
       // on desktop: load user-selected folder from settings
       _mediaFolderPath = await _settingsService.loadMediaFolderPath();
