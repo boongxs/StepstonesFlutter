@@ -3,7 +3,7 @@ import 'package:image_size_getter/image_size_getter.dart' as isg;
 import 'package:image_size_getter/file_input.dart';
 import '../services/logger_service.dart';
 import '../locator.dart';
-import '../services/media_utility_service.dart';
+import '../services/desktop_media_utility_service.dart';
 
 class MediaMetadata {
   final int width;

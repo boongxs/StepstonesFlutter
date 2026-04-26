@@ -108,23 +108,20 @@ class SyncController extends ChangeNotifier {
 
       final ghostItems = await db.getMediaItemsByFilenames(ghosts, folderPath); // get actual MediaItem objects just for ghosts
 
-      // check if AppData folder exists
-      if (session.appSupportPath != null) {
-        final thumbDir = Directory(p.join(session.appSupportPath!, AppConstants.thumbnailDirectory)); // paths to /thumbnails folder
+      final thumbDir = Directory(p.join(session.appSupportPath, AppConstants.thumbnailDirectory)); // paths to /thumbnails folder
 
-        for (var item in ghostItems) {
-          // if item does not have a thumbnail (e.g. audio files), skip
-          if (item.thumbnailPath != null) {
-            try {
-              final thumbFile = File(p.join(thumbDir.path, item.thumbnailPath)); // build the full path to item's thumbnail
-              // check if thumbnail file wasn't already deleted
-              if (await thumbFile.exists()) {
-                await thumbFile.delete();
-                LogService.i("Removed ${item.thumbnailPath}.");
-              }
-            } catch (e) {
-              LogService.e("Failed to delete ghost thumbnail: ${item.thumbnailPath}", e);
+      for (var item in ghostItems) {
+        // if item does not have a thumbnail (e.g. audio files), skip
+        if (item.thumbnailPath != null) {
+          try {
+            final thumbFile = File(p.join(thumbDir.path, item.thumbnailPath)); // build the full path to item's thumbnail
+            // check if thumbnail file wasn't already deleted
+            if (await thumbFile.exists()) {
+              await thumbFile.delete();
+              LogService.i("Removed ${item.thumbnailPath}.");
             }
+          } catch (e) {
+            LogService.e("Failed to delete ghost thumbnail: ${item.thumbnailPath}", e);
           }
         }
       }
@@ -164,11 +161,9 @@ class SyncController extends ChangeNotifier {
   /// Regenerates thumbnail file for media item if it's missing
   Future<void> _validateThumbnails(String folderPath) async {
     // check if AppData folder exists
-    if (session.appSupportPath == null) return;
-
     final items = await db.getItemsInFolder(folderPath); // get all media items
     final validTypes = const ["image", "video", "gif"]; // exclude audio and unknown file types
-    final thumbDir = Directory(p.join(session.appSupportPath!, AppConstants.thumbnailDirectory)); // build full thumbnail folder path
+    final thumbDir = Directory(p.join(session.appSupportPath, AppConstants.thumbnailDirectory)); // build full thumbnail folder path
     int restoredCount = 0;
 
     for (var item in items) {

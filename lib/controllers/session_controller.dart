@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/folder_picker_service.dart';
 import '../services/settings_service.dart';
@@ -9,25 +8,14 @@ class SessionController extends ChangeNotifier {
   final SettingsService _settingsService = getIt<SettingsService>();
   final FolderPickerService _folderPickerService = getIt<FolderPickerService>();
 
-  final Completer<void> _readyCompleter = Completer();
-
-  /// Completes once [_startup] finishes and [mediaFolderPath] is guaranteed to be set.
-  Future<void> get ready => _readyCompleter.future;
-
   String? _mediaFolderPath;
   String? get mediaFolderPath => _mediaFolderPath;
 
-  String? _appSupportPath;
-  String? get appSupportPath => _appSupportPath;
+  late String _appSupportPath;
+  String get appSupportPath => _appSupportPath;
 
   SessionController() {
-    _startup();
-  }
-
-  Future<void> _startup() async {
-    await initialize();
-    notifyListeners();
-    _readyCompleter.complete();
+    initialize();
   }
 
   // load previously saved media folder path

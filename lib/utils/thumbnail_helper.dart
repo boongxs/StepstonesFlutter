@@ -6,7 +6,7 @@ import 'package:image/image.dart' as img;
 import '../services/logger_service.dart';
 import '../constants.dart';
 import '../locator.dart';
-import '../services/media_utility_service.dart';
+import '../services/desktop_media_utility_service.dart';
 
 class _ThumbnailRequest {
   final String sourcePath;

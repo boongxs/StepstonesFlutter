@@ -38,10 +38,7 @@ class MediaGrid extends StatelessWidget {
       );
     }
 
-    // pass cached base path to cells
-    final thumbBaseDir = session.appSupportPath != null
-      ? p.join(session.appSupportPath!, AppConstants.thumbnailDirectory)
-      : null;
+    final thumbBaseDir = p.join(session.appSupportPath, AppConstants.thumbnailDirectory);
 
     return RawScrollbar(
       controller: gallery.scrollController,
@@ -92,11 +89,11 @@ class MediaGrid extends StatelessWidget {
 class _MediaCell extends StatefulWidget {
   final MediaItem? item;
   final int index;
-  final String? thumbBaseDir;
+  final String thumbBaseDir;
 
   const _MediaCell({
     super.key,
-    required this.item, 
+    required this.item,
     required this.index,
     required this.thumbBaseDir
   });
@@ -125,8 +122,8 @@ class _MediaCellState extends State<_MediaCell> {
     final isSelected = context.select<SelectionController, bool>((s) => s.isItemSelected(widget.item!.id));
 
     // logic extraction
-    final hasThumb = widget.item!.thumbnailPath != null && widget.thumbBaseDir != null;
-    final fullThumbPath = hasThumb ? p.join(widget.thumbBaseDir!, widget.item!.thumbnailPath!) : null;
+    final hasThumb = widget.item!.thumbnailPath != null;
+    final fullThumbPath = hasThumb ? p.join(widget.thumbBaseDir, widget.item!.thumbnailPath!) : null;
     final isAudio = widget.item!.fileType == "audio";
     final isVideo = widget.item!.fileType == "video";
 

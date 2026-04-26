@@ -2,10 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import '../utils/metadata_helper.dart';
 import 'logger_service.dart';
-import 'media_utility_service.dart';
 
-class DesktopMediaUtilityService implements MediaUtilityService {
-  @override
+class MediaUtilityService {
   Future<MediaMetadata> extractVideoMetadata(String path) async {
     try {
       final result = await Process.run(
@@ -31,7 +29,7 @@ class DesktopMediaUtilityService implements MediaUtilityService {
     }
   }
 
-  @override
+
   Future<bool> extractVideoFrame(String sourcePath, String tempFramePath, int durationMs) async {
     try {
       int targetMs = (durationMs * 0.10).toInt();

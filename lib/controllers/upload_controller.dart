@@ -222,8 +222,7 @@ class UploadController extends ChangeNotifier {
     final thumbsDir = p.join(unpackedPath, "thumbs");
 
     // build destination folder for thumbnail files
-    final supportPath = session.appSupportPath;
-    final systemThumbsDir = supportPath != null ? p.join(supportPath, AppConstants.thumbnailDirectory) : null;
+    final systemThumbsDir = p.join(session.appSupportPath, AppConstants.thumbnailDirectory);
 
     // main loop to process unpacked media files one by one
     for (final entry in itemsToImport) {
@@ -256,7 +255,7 @@ class UploadController extends ChangeNotifier {
 
       // copy media file's thumbnail file from unpackedPath to thumbnails folder
       final thumbPath = data["thumbnailPath"] as String?;
-      if (isSuccess && !isDuplicate && thumbPath != null && systemThumbsDir != null) {
+      if (isSuccess && !isDuplicate && thumbPath != null) {
         final sourceThumb = p.join(thumbsDir, thumbPath);
         final destThumb = p.join(systemThumbsDir, thumbPath);
 
