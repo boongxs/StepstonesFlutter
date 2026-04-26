@@ -18,8 +18,6 @@ import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
 import '../services/bundle_import_service.dart';
-import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-
 enum _QueueItemType { upload, bundle, orphan }
 
 class _QueueItem {
@@ -41,52 +39,7 @@ class UploadController extends ChangeNotifier {
   bool _isUploading = false;
   bool get isUploading => _isUploading;
 
-  UploadController(this.db, this.session, this.gallery, this.jobStatus) {
-    if (Platform.isAndroid || Platform.isIOS) {
-      _initIntentListener();
-    }
-  }
-
-  /// Sets up two listeners for files shared to the app from Android share sheet.
-  /// Both listeners feed into [_handleSharedFiles]
-  void _initIntentListener() {
-    // background stream, fires whenever app receives a share intent while already running
-    ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
-      _handleSharedFiles(value);
-    }, onError: (err) {
-      LogService.e("Share intent stream error: $err");
-    });
-
-    // cold-start, fires when user shares to the app when it wasn't running
-    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
-      _handleSharedFiles(value);
-    });
-  }
-
-  /// Routes files received from the OS share sheet into the upload queue.
-  /// Bundles and media files are enqueued with their respective types and processed in order.
-  Future<void> _handleSharedFiles(List<SharedMediaFile> sharedFiles) async {
-    if (sharedFiles.isEmpty) return;
-
-    // Wait for SessionController to finish loading mediaFolderPath from storage.
-    await session.ready;
-
-    final paths = <String>[];
-    for (final sharedFile in sharedFiles) {
-      paths.add(sharedFile.path);
-    }
-
-    for (final path in paths) {
-      final isBundle = p.extension(path).toLowerCase() == ".stepstone";
-      _uploadQueue.add(_QueueItem(path, isBundle ? _QueueItemType.bundle : _QueueItemType.upload));
-    }
-
-    // only start the queue if it isn't already running
-    if (!_isUploading) _processUploadQueue();
-
-    // reset share intent so it's not handled again on next app resume or restart
-    ReceiveSharingIntent.instance.reset();
-  }
+  UploadController(this.db, this.session, this.gallery, this.jobStatus);
 
   /// Opens the file picker and enqueues selected files.
   /// Bundles (.stepstone) and media files are queued together and dispatched by type.

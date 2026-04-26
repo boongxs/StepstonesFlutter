@@ -10,7 +10,7 @@ import 'package:stepstones_flt/providers/status_card_provider.dart';
 import 'providers/logs_view_provider.dart';
 import 'locator.dart';
 import 'services/logger_service.dart';
-import 'screens/main_screen.dart';
+import 'screens/main_screen_desktop.dart';
 import 'package:media_kit/media_kit.dart';
 import 'services/media_action_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -104,7 +104,7 @@ class MainApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      home: const MainScreen(), // start building Main Screen
+      home: const MainScreenDesktop(),
     );
   }
 }
