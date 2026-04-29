@@ -55,10 +55,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   void dispose() {
     _focusNode.dispose();
     _transformationController.dispose();
-
-    imageCache.clear();
-    imageCache.clearLiveImages();
-
+    _evictCurrentImage();
     super.dispose();
   }
 
