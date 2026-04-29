@@ -27,7 +27,6 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   late TransformationController _transformationController;
   double _zoomLevel = 1.0;
   Size _displaySize = Size.zero;
-  bool _showInfoPanel = false;
   String? _localDate;
   String? _localTime;
   int? _lastLoadedItemId;
@@ -99,6 +98,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
       initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
+      initialEntryMode: DatePickerEntryMode.inputOnly,
     );
     if (picked == null) return;
 
@@ -121,7 +121,11 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
       }
     }
 
-    final picked = await showTimePicker(context: context, initialTime: initial);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      initialEntryMode: TimePickerEntryMode.inputOnly,
+    );
     if (picked == null) return;
 
     final formatted =
@@ -148,37 +152,19 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   }
 
   void _goToPrevious() {
-    final gallery = context.read<GalleryController>();
-    var newIndex = _currentIndex - 1;
-
-    while (newIndex >= 0) {
-      final candidate = gallery.getItem(newIndex);
-      if (candidate == null || candidate.fileType != 'unknown') break;
-      newIndex--;
-    }
-
-    if (newIndex >= 0) {
+    if (_currentIndex > 0) {
       _evictCurrentImage();
       _resetZoom();
-      setState(() => _currentIndex = newIndex);
+      setState(() => _currentIndex--);
     }
   }
 
   void _goToNext() {
-    final gallery = context.read<GalleryController>();
-    final totalCount = gallery.totalItemCount;
-    var newIndex = _currentIndex + 1;
-
-    while (newIndex < totalCount) {
-      final candidate = gallery.getItem(newIndex);
-      if (candidate == null || candidate.fileType != 'unknown') break;
-      newIndex++;
-    }
-
-    if (newIndex < totalCount) {
+    final totalCount = context.read<GalleryController>().totalItemCount;
+    if (_currentIndex < totalCount - 1) {
       _evictCurrentImage();
       _resetZoom();
-      setState(() => _currentIndex = newIndex);
+      setState(() => _currentIndex++);
     }
   }
 
@@ -236,6 +222,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
 
         final fullPath = p.join(item.mediaFolderPath, item.hashedFileName);
         final isImageOrGif = item.fileType == 'image' || item.fileType == 'gif';
+        final isUnknown = item.fileType == 'unknown';
 
         // build content
         Widget contentWidget;
@@ -249,6 +236,32 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
             errorBuilder: (ctx, err, stack) => const Center(
               child: Icon(Icons.broken_image, color: Colors.white, size: 48),
             ),
+          );
+        } else if (isUnknown) {
+          contentWidget = Container(
+            color: const Color(0xFF282828),
+            child: Center(
+              child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.insert_drive_file_outlined, size: 80, color: Colors.white54),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.folder_open_rounded),
+                  label: const Text("Show in File Explorer"),
+                  onPressed: () {
+                    final winPath = fullPath.replaceAll('/', '\\');
+                    Process.run('powershell', [
+                      '-NoProfile',
+                      '-NonInteractive',
+                      '-Command',
+                      'explorer /select,"$winPath"',
+                    ]);
+                  },
+                ),
+              ],
+            ),
+          ),
           );
         } else {
           contentWidget = UniversalPlayer(
@@ -299,12 +312,13 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                               clipBehavior: Clip.antiAlias,
                               child: isImageOrGif
                                   ? InteractiveViewer(
-                                      transformationController: _transformationController,
-                                      minScale: 1.0,
-                                      maxScale: 4.0,
-                                      panEnabled: _zoomLevel > 1.0,
-                                      boundaryMargin: EdgeInsets.zero,
-                                      child: contentWidget,
+                                        transformationController: _transformationController,
+                                        scaleFactor: 1000,
+                                        minScale: 1.0,
+                                        maxScale: 4.0,
+                                        panEnabled: _zoomLevel > 1.0,
+                                        boundaryMargin: EdgeInsets.zero,
+                                        child: contentWidget,
                                     )
                                   : contentWidget,
                             ),
@@ -410,15 +424,22 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                 },
                               ),
 
+                              // zoom slider
                               if (isImageOrGif) ...[
                                 const SizedBox(width: 8),
                                 SizedBox(
                                   width: 120,
-                                  child: Slider(
-                                    value: _zoomLevel,
-                                    min: 1.0,
-                                    max: 4.0,
-                                    onChanged: _setZoom,
+                                  child: SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                                    ),
+                                    child: Slider(
+                                      value: _zoomLevel,
+                                      min: 1.0,
+                                      max: 4.0,
+                                      onChanged: _setZoom,
+                                    ),
                                   ),
                                 ),
                                 Text(
@@ -427,16 +448,6 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                 ),
                                 const SizedBox(width: 16),
                               ],
-
-                              // info / date-time toggle
-                              _ToolbarButton(
-                                icon: _showInfoPanel ? Icons.info_rounded : Icons.info_outline_rounded,
-                                color: Colors.white70,
-                                tooltip: "Date & Time",
-                                onPressed: () => setState(() => _showInfoPanel = !_showInfoPanel),
-                              ),
-
-                              const SizedBox(width: 8),
 
                               Container(
                                 width: 1,
@@ -457,8 +468,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                       ),
 
                       // info panel (date & time)
-                      if (_showInfoPanel)
-                        Positioned(
+                      Positioned(
                           top: 88,
                           right: 20,
                           child: Container(

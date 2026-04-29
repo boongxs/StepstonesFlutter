@@ -68,17 +68,6 @@ class MediaActionService {
     final item = gallery.getItem(index);
     if (item == null) return;
 
-    const allowedTypes = ['image', 'gif', 'video', 'audio'];
-
-    if (!allowedTypes.contains(item.fileType)) {
-      context.showStepstonesSnackBar(
-        "Viewer for ${item.fileType} not implemented.",
-        isError: true,
-      );
-      
-      return;
-    }
-
     await showDialog(
       context: context,
       barrierDismissible: true,
