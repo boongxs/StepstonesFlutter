@@ -53,8 +53,25 @@ class _MainScreenDesktopState extends State<MainScreenDesktop> {
                 children: [
                   const SizedBox(height: 10),
 
-                  // Title
-                  const Text("Stepstones", style: TextStyle(fontSize: 90)),
+                  // Title + subtitle
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Stepstones", 
+                        style: TextStyle(fontSize: 90)
+                      ),
+                      Text(
+                        "Media Manager",
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+                    ],
+                  ),
 
                   const SizedBox(height: 20),
 

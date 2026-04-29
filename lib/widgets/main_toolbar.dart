@@ -69,7 +69,7 @@ class MainToolbar extends StatelessWidget {
                 : null,
             ),
 
-            const SizedBox(width: 10),
+            const SizedBox(width: 50),
 
             // 5. Media Grid view button
             _ViewButton(
