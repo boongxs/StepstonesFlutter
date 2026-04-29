@@ -25,6 +25,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   late int _currentIndex;
   late FocusNode _focusNode;
   late TransformationController _transformationController;
+  late GalleryController _gallery;
   double _zoomLevel = 1.0;
   Size _displaySize = Size.zero;
   String? _localDate;
@@ -37,6 +38,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     _currentIndex = widget.initialIndex;
     _focusNode = FocusNode();
     _transformationController = TransformationController();
+    _gallery = context.read<GalleryController>();
 
     _transformationController.addListener(() {
       final scale = _transformationController.value.getMaxScaleOnAxis().clamp(1.0, 4.0);
@@ -75,7 +77,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   }
 
   void _evictCurrentImage() {
-    final item = context.read<GalleryController>().getItem(_currentIndex);
+    final item = _gallery.getItem(_currentIndex);
     if (item == null) return;
     if (item.fileType != 'image' && item.fileType != 'gif') return;
     final path = p.join(item.mediaFolderPath, item.hashedFileName);
