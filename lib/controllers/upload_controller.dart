@@ -17,6 +17,7 @@ import '../utils/phash_helper.dart';
 import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
+import 'settings_controller.dart';
 import '../services/bundle_import_service.dart';
 enum _QueueItemType { upload, bundle, orphan }
 
@@ -31,6 +32,7 @@ class UploadController extends ChangeNotifier {
   final SessionController session;
   final GalleryController gallery;
   final StatusCardProvider jobStatus;
+  final SettingsController settings;
 
   final FileService _fileService = getIt<FileService>();
   final FilePickerService _filePickerService = getIt<FilePickerService>();
@@ -39,7 +41,7 @@ class UploadController extends ChangeNotifier {
   bool _isUploading = false;
   bool get isUploading => _isUploading;
 
-  UploadController(this.db, this.session, this.gallery, this.jobStatus);
+  UploadController(this.db, this.session, this.gallery, this.jobStatus, this.settings);
 
   /// Opens the file picker and enqueues selected files.
   /// Bundles (.stepstone) and media files are queued together and dispatched by type.
@@ -324,7 +326,7 @@ class UploadController extends ChangeNotifier {
       if (existingHash == null) continue;
 
       final sim = PhashHelper.similarity(hash, existingHash);
-      if (sim >= 95.0) {
+      if (sim >= settings.similarityThreshold) {
         await db.insertPendingReview(uploadedId, item.id, sim);
         flagged++;
       }

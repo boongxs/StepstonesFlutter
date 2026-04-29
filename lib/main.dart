@@ -64,6 +64,7 @@ void main() async {
           context.read<SessionController>(),
           context.read<GalleryController>(),
           context.read<StatusCardProvider>(),
+          context.read<SettingsController>(),
         )),
 
         ChangeNotifierProvider(

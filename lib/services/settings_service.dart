@@ -5,6 +5,7 @@ class SettingsService {
   static const String _mediaFolderKey = "media_folder_path";
   static const String _defaultVolumeKey = "default_volume";
   static const String _themeColorKey = "theme_color";
+  static const String _similarityThresholdKey = "similarity_threshold";
 
   // --- MEDIA FOLDER ---
   // saves selected media folder path to persistent storage
@@ -78,6 +79,28 @@ class SettingsService {
       return prefs.getInt(_themeColorKey);
     } catch (e) {
       LogService.e("Error loading theme color", e);
+      return null;
+    }
+  }
+
+  // --- SIMILARITY THRESHOLD ---
+  Future<bool> saveSimilarityThreshold(double threshold) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_similarityThresholdKey, threshold);
+      return true;
+    } catch (e) {
+      LogService.e("Error saving similarity threshold", e);
+      return false;
+    }
+  }
+
+  Future<double?> loadSimilarityThreshold() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getDouble(_similarityThresholdKey);
+    } catch (e) {
+      LogService.e("Error loading similarity threshold", e);
       return null;
     }
   }

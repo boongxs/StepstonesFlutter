@@ -19,6 +19,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
 
   late double _defaultVolume;
   late Color _selectedColor;
+  late double _similarityThreshold;
+
+  final ScrollController _scrollController = ScrollController();
 
   // list of theme colors to choose from
   final List<Color> _availableColors = [
@@ -30,6 +33,12 @@ class _SettingsDialogState extends State<SettingsDialog> {
   ];
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
 
@@ -37,6 +46,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final settings = context.read<SettingsController>();
     _defaultVolume = settings.defaultVolume;
     _selectedColor = settings.themeColor;
+    _similarityThreshold = settings.similarityThreshold;
   }
 
   @override
@@ -55,9 +65,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Container(
           width: 700,
-          height: 450,
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height - 96),
           padding: const EdgeInsets.all(24),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- HEADER ---
@@ -85,11 +96,22 @@ class _SettingsDialogState extends State<SettingsDialog> {
               const SizedBox(height: 16),
       
               // --- BODY (Placeholder for future settings) ---
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  child: ListView(
-                    children: [
+              Flexible(
+                child: RawScrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  thickness: 8,
+                  radius: const Radius.circular(4),
+                  thumbColor: const Color(0xFF6f6f6f),
+                  trackColor: const Color(0xFF3a3a3a),
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                    child: ListView(
+                      controller: _scrollController,
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
+                      children: [
                       // default volume setting
                       Container(
                         width: double.infinity,
@@ -162,7 +184,78 @@ class _SettingsDialogState extends State<SettingsDialog> {
                       ),
       
                       const SizedBox(height: 12),
-      
+
+                      // duplicate sensitivity setting
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff383838),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.find_replace_rounded, color: Colors.white70, size: 28),
+
+                            const SizedBox(width: 16),
+
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "Duplicate Sensitivity",
+                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+
+                                  SizedBox(height: 4),
+
+                                  Text(
+                                    "Minimum similarity for flagging potential duplicates in Review view",
+                                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 16),
+
+                            Text(
+                              "${_similarityThreshold.toInt()}%",
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            SizedBox(
+                              width: 150,
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  overlayShape: SliderComponentShape.noOverlay,
+                                ),
+                                child: Slider(
+                                  value: _similarityThreshold,
+                                  min: 75,
+                                  max: 95,
+                                  divisions: 4,
+                                  activeColor: localTheme.colorScheme.primary,
+                                  inactiveColor: Colors.white24,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _similarityThreshold = val;
+                                      _hasChanges = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
                       // theme color setting
                       Container(
                         width: double.infinity,
@@ -238,9 +331,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   ),
                 ),
               ),
-      
+            ),
+
               const SizedBox(height: 24),
-      
+
               // --- FOOTER BUTTONS ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -257,7 +351,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   FilledButton(
                     onPressed: _hasChanges
                       ? () async {
-                        final success = await context.read<SettingsController>().saveSettings(_defaultVolume, _selectedColor);
+                        final success = await context.read<SettingsController>().saveSettings(_defaultVolume, _selectedColor, _similarityThreshold);
                         
                         if (context.mounted) {
                           if (success) {

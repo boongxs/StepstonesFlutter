@@ -12,6 +12,9 @@ class SettingsController extends ChangeNotifier {
   Color _themeColor = Colors.tealAccent;
   Color get themeColor => _themeColor;
 
+  double _similarityThreshold = 95.0;
+  double get similarityThreshold => _similarityThreshold;
+
   SettingsController() {
     _loadSettings();
   }
@@ -19,6 +22,7 @@ class SettingsController extends ChangeNotifier {
   Future<void> _loadSettings() async {
     // load saves values or fallback to defaults
     _defaultVolume = await _settingsService.loadDefaultVolume() ?? 50.0;
+    _similarityThreshold = await _settingsService.loadSimilarityThreshold() ?? 95.0;
 
     final savedColorValue = await _settingsService.loadThemeColor();
     if (savedColorValue != null) {
@@ -28,16 +32,18 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> saveSettings(double volume, Color color) async {
+  Future<bool> saveSettings(double volume, Color color, double similarityThreshold) async {
     // update local state and notify UI to rebuild
     _defaultVolume = volume;
     _themeColor = color;
+    _similarityThreshold = similarityThreshold;
     notifyListeners();
 
     // save to disk
     final volumeSuccess = await _settingsService.saveDefaultVolume(volume);
     final colorSuccess = await _settingsService.saveThemeColor(color.toARGB32());
+    final thresholdSuccess = await _settingsService.saveSimilarityThreshold(similarityThreshold);
 
-    return volumeSuccess && colorSuccess;
+    return volumeSuccess && colorSuccess && thresholdSuccess;
   }
 }
