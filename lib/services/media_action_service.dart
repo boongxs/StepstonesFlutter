@@ -35,6 +35,8 @@ class MediaActionService {
     final db = getIt<AppDatabase>();
     final tagsString = await db.getTagsForMediaItem(item.id);
 
+    if (!context.mounted) return;
+
     // open dialog
     final newTags = await showDialog<String>(
       context: context,
