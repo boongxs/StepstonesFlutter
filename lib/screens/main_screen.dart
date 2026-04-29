@@ -76,14 +76,24 @@ class _MainScreenDesktopState extends State<MainScreenDesktop> {
                   const SizedBox(height: 20),
 
                   // --- SEARCH BOX---
-                  PrimarySearchBar(
-                    controller: context.read<GalleryController>().searchController,
-                    onChanged: (value) {
-                      context.read<GalleryController>().onSearchTextChanged(value);
-                    },
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: _activeView == ActiveView.mediaGrid
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PrimarySearchBar(
+                                controller: context.read<GalleryController>().searchController,
+                                onChanged: (value) {
+                                  context.read<GalleryController>().onSearchTextChanged(value);
+                                },
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
                   ),
-
-                  const SizedBox(height: 20),
 
                   // --- ACTION BUTTONS ROW ---
                   MainToolbar(

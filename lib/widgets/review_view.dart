@@ -5,13 +5,27 @@ import '../data/app_database.dart';
 import '../providers/review_provider.dart';
 import 'media_preview_dialog.dart';
 
-class ReviewView extends StatelessWidget {
+class ReviewView extends StatefulWidget {
   const ReviewView({super.key});
+
+  @override
+  State<ReviewView> createState() => _ReviewViewState();
+}
+
+class _ReviewViewState extends State<ReviewView> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
+      height: double.infinity,
       margin: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
@@ -42,121 +56,137 @@ class ReviewView extends StatelessWidget {
 
           return Padding(
             padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // --- HEADER ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "POTENTIAL DUPLICATE REVIEW",
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        "${review.pendingCount} remaining",
-                        style: const TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white12),
-                const SizedBox(height: 20),
-
-                // --- THUMBNAILS ROW ---
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: RawScrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              thickness: 8,
+              radius: const Radius.circular(4),
+              thumbColor: const Color(0xFF6f6f6f),
+              trackColor: const Color(0xFF3a3a3a),
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(right: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: _FilePanel(
-                          label: "Uploaded file",
-                          item: uploaded,
-                          thumbnailPath: review.uploadedThumbnailPath,
-                          fileName: uploaded?.hashedFileName ?? "—",
-                          detail: null,
-                        ),
+                      // --- HEADER ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            "POTENTIAL DUPLICATE REVIEW",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white12,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              "${review.pendingCount} remaining",
+                              style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: _FilePanel(
-                          label: "Possible duplicate",
-                          item: matched,
-                          thumbnailPath: review.matchedThumbnailPath,
-                          fileName: matched?.hashedFileName ?? "—",
-                          detail: similarity != null
-                              ? "${similarity.toStringAsFixed(1)}% similar"
-                              : null,
-                        ),
+
+                      const SizedBox(height: 20),
+                      const Divider(color: Colors.white12),
+                      const SizedBox(height: 20),
+
+                      // --- THUMBNAILS ROW ---
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _FilePanel(
+                              label: "Uploaded file",
+                              item: uploaded,
+                              thumbnailPath: review.uploadedThumbnailPath,
+                              fileName: uploaded?.hashedFileName ?? "—",
+                              detail: null,
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: _FilePanel(
+                              label: "Possible duplicate",
+                              item: matched,
+                              thumbnailPath: review.matchedThumbnailPath,
+                              fileName: matched?.hashedFileName ?? "—",
+                              detail: similarity != null
+                                  ? "${similarity.toStringAsFixed(1)}% similar"
+                                  : null,
+                            ),
+                          ),
+                        ],
                       ),
+
+                      const SizedBox(height: 20),
+                      const Divider(color: Colors.white12),
+                      const SizedBox(height: 20),
+
+                      // --- ACTION BUTTONS ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 140,
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              onPressed: review.keep,
+                              icon: const Icon(Icons.check_rounded, size: 20),
+                              label: const Text(
+                                "KEEP",
+                                style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xff404040),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          SizedBox(
+                            width: 140,
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              onPressed: review.discard,
+                              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                              label: const Text(
+                                "DISCARD",
+                                style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.shade900,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white12),
-                const SizedBox(height: 20),
-
-                // --- ACTION BUTTONS ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 140,
-                      height: 44,
-                      child: ElevatedButton.icon(
-                        onPressed: review.keep,
-                        icon: const Icon(Icons.check_rounded, size: 20),
-                        label: const Text(
-                          "KEEP",
-                          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff404040),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    SizedBox(
-                      width: 140,
-                      height: 44,
-                      child: ElevatedButton.icon(
-                        onPressed: review.discard,
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                        label: const Text(
-                          "DISCARD",
-                          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade900,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           );
         },
