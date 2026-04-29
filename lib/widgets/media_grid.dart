@@ -140,7 +140,7 @@ class _MediaCellState extends State<_MediaCell> {
           if (hasThumb && fullThumbPath != null)
             Image.file(
               File(fullThumbPath),
-              key: ValueKey(_safelyGetMTime(File(fullThumbPath))),
+              key: ValueKey(widget.item!.id),
               fit: BoxFit.cover,
               errorBuilder: (ctx, err, stack) => const Center(
                 child: Icon(Icons.broken_image, color: Colors.grey)
@@ -344,14 +344,6 @@ class _MediaCellState extends State<_MediaCell> {
     }
   }
 
-  int _safelyGetMTime(File file) {
-    try {
-      if (!file.existsSync()) return 0;
-      return file.lastModifiedSync().millisecondsSinceEpoch;
-    } catch (e) {
-      return 0;
-    }
-  }
 }
 
 // private CustomPainter for selection overlay of media cell
