@@ -27,6 +27,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   final FocusNode _focusNode = FocusNode();
   final LayerLink _layerLink = LayerLink();
   bool _hasFocus = false;
+  bool _disposed = false;
   OverlayEntry? _overlayEntry;
   List<String> _suggestions = [];
 
@@ -38,7 +39,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
       if (!_focusNode.hasFocus) {
         // Delay so an overlay tap can complete before the overlay is removed.
         Future.delayed(const Duration(milliseconds: 150), () {
-          if (mounted && !_focusNode.hasFocus) _hideSuggestions();
+          if (!_disposed && !_focusNode.hasFocus) _hideSuggestions();
         });
       }
     });
@@ -46,7 +47,9 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
 
   @override
   void dispose() {
-    _hideSuggestions();
+    _disposed = true;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     _focusNode.dispose();
     super.dispose();
   }
@@ -100,7 +103,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   void _hideSuggestions() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    if (mounted) setState(() => _suggestions = []);
+    if (!_disposed) setState(() => _suggestions = []);
   }
 
   OverlayEntry _buildOverlay() {
