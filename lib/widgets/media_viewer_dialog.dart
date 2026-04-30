@@ -31,6 +31,8 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   String? _localDate;
   String? _localTime;
   int? _lastLoadedItemId;
+  final Map<int, String?> _dateOverrides = {};
+  final Map<int, String?> _timeOverrides = {};
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     _focusNode.dispose();
     _transformationController.dispose();
     _evictCurrentImage();
+    _gallery.fullRefresh(resetScroll: false);
     super.dispose();
   }
 
@@ -107,8 +110,8 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
         '${picked.day.toString().padLeft(2, '0')}';
     await getIt<AppDatabase>().updateMediaDateTime(item.id, formatted, _localTime);
     if (!mounted) return;
+    _dateOverrides[item.id] = formatted;
     setState(() => _localDate = formatted);
-    await context.read<GalleryController>().fullRefresh(resetScroll: false);
   }
 
   Future<void> _pickTime(MediaItem item) async {
@@ -132,22 +135,22 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
         '${picked.minute.toString().padLeft(2, '0')}';
     await getIt<AppDatabase>().updateMediaDateTime(item.id, _localDate, formatted);
     if (!mounted) return;
+    _timeOverrides[item.id] = formatted;
     setState(() => _localTime = formatted);
-    await context.read<GalleryController>().fullRefresh(resetScroll: false);
   }
 
   Future<void> _clearDate(MediaItem item) async {
     await getIt<AppDatabase>().updateMediaDateTime(item.id, null, _localTime);
     if (!mounted) return;
+    _dateOverrides[item.id] = null;
     setState(() => _localDate = null);
-    await context.read<GalleryController>().fullRefresh(resetScroll: false);
   }
 
   Future<void> _clearTime(MediaItem item) async {
     await getIt<AppDatabase>().updateMediaDateTime(item.id, _localDate, null);
     if (!mounted) return;
+    _timeOverrides[item.id] = null;
     setState(() => _localTime = null);
-    await context.read<GalleryController>().fullRefresh(resetScroll: false);
   }
 
   void _goToPrevious() {
@@ -197,8 +200,8 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
         // sync local date/time when navigating to a different item
         if (_lastLoadedItemId != item.id) {
           _lastLoadedItemId = item.id;
-          _localDate = item.date;
-          _localTime = item.time;
+          _localDate = _dateOverrides.containsKey(item.id) ? _dateOverrides[item.id] : item.date;
+          _localTime = _timeOverrides.containsKey(item.id) ? _timeOverrides[item.id] : item.time;
         }
 
         // get screen size

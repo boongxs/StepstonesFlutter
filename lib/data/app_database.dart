@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import '../constants.dart';
+import '../models/media_sort_option.dart';
 
 part 'app_database.g.dart';
 
@@ -156,12 +157,38 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // fetch a specific page of items (data virtualization)
-  Future<List<MediaItem>> getPagedMediaItems(String folderPath, int limit, int offset, {String? searchQuery}) {
+  Future<List<MediaItem>> getPagedMediaItems(
+    String folderPath,
+    int limit,
+    int offset, {
+    String? searchQuery,
+    SortField sortField = SortField.dateAdded,
+    SortDirection sortDirection = SortDirection.asc,
+  }) {
     final query = select(mediaItems)
       ..where((t) => _buildSearchPredicate(folderPath, searchQuery))
       ..limit(limit, offset: offset)
-      ..orderBy([(t) => OrderingTerm(expression: t.id)]);
+      ..orderBy(_buildOrderBy(sortField, sortDirection));
     return query.get();
+  }
+
+  List<OrderingTerm Function(MediaItems)> _buildOrderBy(SortField field, SortDirection direction) {
+    final mode = direction == SortDirection.asc ? OrderingMode.asc : OrderingMode.desc;
+    switch (field) {
+      case SortField.dateAdded:
+        return [(t) => OrderingTerm(expression: t.id, mode: mode)];
+      case SortField.mediaDate:
+        return [
+          (t) => OrderingTerm(expression: CustomExpression<int>('CASE WHEN date IS NULL THEN 1 ELSE 0 END')),
+          (t) => OrderingTerm(expression: t.date, mode: mode),
+        ];
+      case SortField.fileType:
+        return [(t) => OrderingTerm(
+          expression: CustomExpression<int>(
+            "CASE file_type WHEN 'image' THEN 0 WHEN 'gif' THEN 1 WHEN 'video' THEN 2 WHEN 'audio' THEN 3 ELSE 4 END"
+          ),
+        )];
+    }
   }
 
   Future<void> updateMediaTags(int mediaId, String newTags) {

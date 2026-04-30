@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import '../data/app_database.dart';
+import '../models/media_sort_option.dart';
 import '../services/logger_service.dart';
 import 'session_controller.dart';
 import '../constants.dart';
@@ -21,6 +22,11 @@ class GalleryController extends ChangeNotifier {
   String? _currentSearchQuery = "";
   String? get currentSearchQuery => _currentSearchQuery;
   Timer? _searchDebounceTimer;
+
+  SortField _currentSortField = SortField.dateAdded;
+  SortDirection _currentSortDirection = SortDirection.asc;
+  SortField get currentSortField => _currentSortField;
+  SortDirection get currentSortDirection => _currentSortDirection;
 
   // --- pagination cache ---
   static const int _pageSize = 200;
@@ -172,6 +178,17 @@ class GalleryController extends ChangeNotifier {
     }
   }
 
+  Future<void> setSortField(SortField field) async {
+    _currentSortField = field;
+    await fullRefresh(resetScroll: true);
+  }
+
+  Future<void> setSortFieldAndDirection(SortField field, SortDirection direction) async {
+    _currentSortField = field;
+    _currentSortDirection = direction;
+    await fullRefresh(resetScroll: true);
+  }
+
   void onSearchTextChanged(String text) {
     _searchDebounceTimer?.cancel();
     _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () async {
@@ -194,10 +211,12 @@ class GalleryController extends ChangeNotifier {
     final offset = pageIndex * _pageSize;
 
     _database.getPagedMediaItems(
-      _session.mediaFolderPath!, 
-      _pageSize, 
+      _session.mediaFolderPath!,
+      _pageSize,
       offset,
-      searchQuery: _currentSearchQuery
+      searchQuery: _currentSearchQuery,
+      sortField: _currentSortField,
+      sortDirection: _currentSortDirection,
     ).then((items) {
       if (items.isEmpty && _totalItemCount > 0) {
         _pagesBeingFetched.remove(pageIndex);
