@@ -88,6 +88,7 @@ class _MainScreenDesktopState extends State<MainScreenDesktop> {
                                 onChanged: (value) {
                                   context.read<GalleryController>().onSearchTextChanged(value);
                                 },
+                                onSuggest: context.read<GalleryController>().getSuggestions,
                               ),
                               const SizedBox(height: 20),
                             ],

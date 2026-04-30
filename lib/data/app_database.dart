@@ -264,6 +264,20 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // get all distinct tag names used by items in a folder (for autocomplete)
+  Future<List<String>> getTagNamesInFolder(String folderPath) {
+    final query = selectOnly(tags)
+      ..addColumns([tags.name])
+      ..join([
+        innerJoin(mediaTags, mediaTags.tagId.equalsExp(tags.id)),
+        innerJoin(mediaItems, mediaItems.id.equalsExp(mediaTags.mediaId)),
+      ])
+      ..where(mediaItems.mediaFolderPath.equals(folderPath))
+      ..groupBy([tags.id])
+      ..orderBy([OrderingTerm(expression: tags.name)]);
+    return query.map((row) => row.read(tags.name)!).get();
+  }
+
   // fetch full media items by filenames (for ghost cleanup)
   Future<List<MediaItem>> getMediaItemsByFilenames(List<String> filenames, String folderPath) {
     return (select(mediaItems)

@@ -28,6 +28,9 @@ class GalleryController extends ChangeNotifier {
   SortField get currentSortField => _currentSortField;
   SortDirection get currentSortDirection => _currentSortDirection;
 
+  // --- tag autocomplete cache ---
+  List<String>? _tagCache;
+
   // --- pagination cache ---
   static const int _pageSize = 200;
   static const int _maxPagesInMemory = 4;
@@ -244,6 +247,16 @@ class GalleryController extends ChangeNotifier {
     _pageCache.clear();
     _pageUsageHistory.clear();
     _pagesBeingFetched.clear();
+    _tagCache = null;
+  }
+
+  Future<List<String>> getSuggestions(String partial, List<String> exclude) async {
+    if (_session.mediaFolderPath == null) return [];
+    _tagCache ??= await _database.getTagNamesInFolder(_session.mediaFolderPath!);
+    final lower = partial.toLowerCase();
+    return _tagCache!
+        .where((t) => t.startsWith(lower) && !exclude.contains(t))
+        .toList();
   }
 
   void clearSearch() {
