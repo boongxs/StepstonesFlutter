@@ -26,10 +26,14 @@ class PrimarySearchBar extends StatefulWidget {
 class _PrimarySearchBarState extends State<PrimarySearchBar> {
   final FocusNode _focusNode = FocusNode();
   final LayerLink _layerLink = LayerLink();
+  final ScrollController _suggestionsScrollController = ScrollController();
   bool _hasFocus = false;
   bool _disposed = false;
   OverlayEntry? _overlayEntry;
   List<String> _suggestions = [];
+
+  static const _borderColor = Color.fromARGB(255, 117, 117, 117);
+  static const _borderSide = BorderSide(color: _borderColor, width: 2);
 
   @override
   void initState() {
@@ -37,7 +41,6 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     _focusNode.addListener(() {
       setState(() => _hasFocus = _focusNode.hasFocus);
       if (!_focusNode.hasFocus) {
-        // Delay so an overlay tap can complete before the overlay is removed.
         Future.delayed(const Duration(milliseconds: 150), () {
           if (!_disposed && !_focusNode.hasFocus) _hideSuggestions();
         });
@@ -50,6 +53,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     _disposed = true;
     _overlayEntry?.remove();
     _overlayEntry = null;
+    _suggestionsScrollController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -72,15 +76,27 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
       _hideSuggestions();
       return;
     }
+    final overlay = Overlay.of(context);
     final exclude = _getAlreadyTyped(text);
     final results = await widget.onSuggest!(partial, exclude);
-    if (!mounted) return;
-    setState(() => _suggestions = results);
+    if (_disposed) return;
     if (results.isEmpty) {
       _hideSuggestions();
     } else {
-      _showSuggestions();
+      setState(() => _suggestions = results);
+      if (_overlayEntry == null) {
+        _overlayEntry = _buildOverlay();
+        overlay.insert(_overlayEntry!);
+      } else {
+        _overlayEntry!.markNeedsBuild();
+      }
     }
+  }
+
+  void _hideSuggestions() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (!_disposed) setState(() => _suggestions = []);
   }
 
   void _acceptSuggestion(String tag) {
@@ -99,46 +115,59 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     });
   }
 
-  void _showSuggestions() {
-    _overlayEntry?.remove();
-    _overlayEntry = _buildOverlay();
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _hideSuggestions() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-    if (!_disposed) setState(() => _suggestions = []);
-  }
-
   OverlayEntry _buildOverlay() {
     return OverlayEntry(
-      builder: (ctx) => Positioned(
+      builder: (_) => Positioned(
         width: widget.width ?? 600,
         child: CompositedTransformFollower(
           link: _layerLink,
           showWhenUnlinked: false,
-          offset: Offset(0, (widget.height ?? 72) + 4),
+          offset: Offset(0, widget.height ?? 72),
           child: Material(
             color: Colors.transparent,
             child: Container(
               constraints: const BoxConstraints(maxHeight: 220),
-              decoration: BoxDecoration(
-                color: const Color(0xff303030),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF555555)),
-              ),
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                shrinkWrap: true,
-                itemCount: _suggestions.length,
-                itemBuilder: (_, i) => InkWell(
-                  onTap: () => _acceptSuggestion(_suggestions[i]),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(_suggestions[i], style: const TextStyle(fontSize: 14)),
-                  ),
+              decoration: const BoxDecoration(
+                color: Color(0xff303030),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(10),
+                  bottomRight: Radius.circular(10),
                 ),
+                border: Border(
+                  left: _borderSide,
+                  right: _borderSide,
+                  bottom: _borderSide,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Divider(
+                    color: Color(0xFF555555),
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
+                  Flexible(
+                    child: RawScrollbar(
+                      controller: _suggestionsScrollController,
+                      thumbVisibility: true,
+                      child: ScrollConfiguration(
+                        behavior: const ScrollBehavior().copyWith(scrollbars: false),
+                        child: ListView.builder(
+                          controller: _suggestionsScrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          shrinkWrap: true,
+                          itemCount: _suggestions.length,
+                          itemBuilder: (_, i) => _SuggestionItem(
+                            label: _suggestions[i],
+                            onTap: () => _acceptSuggestion(_suggestions[i]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -149,24 +178,35 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final bool showSuggestions = _suggestions.isNotEmpty;
+
     return MouseRegion(
       cursor: SystemMouseCursors.text,
       child: GestureDetector(
         onTap: () => _focusNode.requestFocus(),
         child: CompositedTransformTarget(
           link: _layerLink,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
-            curve: Curves.easeInOut,
+          child: Container(
             width: widget.width,
             height: widget.height,
             decoration: BoxDecoration(
               color: const Color(0xff303030),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: _hasFocus ? const Color.fromARGB(255, 117, 117, 117) : Colors.transparent,
-                width: 2,
-              ),
+              borderRadius: showSuggestions
+                  ? const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                      topRight: Radius.circular(10),
+                    )
+                  : BorderRadius.circular(10),
+              border: showSuggestions
+                  ? const Border(
+                      top: _borderSide,
+                      left: _borderSide,
+                      right: _borderSide,
+                    )
+                  : Border.all(
+                      color: _hasFocus ? _borderColor : Colors.transparent,
+                      width: 2,
+                    ),
             ),
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -188,6 +228,42 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
                 _updateSuggestions(text);
               },
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionItem extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _SuggestionItem({required this.label, required this.onTap});
+
+  @override
+  State<_SuggestionItem> createState() => _SuggestionItemState();
+}
+
+class _SuggestionItemState extends State<_SuggestionItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              color: _isHovered ? const Color(0xFF3D3D3D) : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Text(widget.label, style: const TextStyle(fontSize: 14)),
           ),
         ),
       ),
