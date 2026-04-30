@@ -89,9 +89,14 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     if (parts.isNotEmpty) parts[parts.length - 1] = tag;
     final newText = '${parts.join(' ')} ';
     widget.controller.text = newText;
-    widget.controller.selection = TextSelection.collapsed(offset: newText.length);
     widget.onChanged?.call(newText);
     _hideSuggestions();
+    _focusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_disposed) {
+        widget.controller.selection = TextSelection.collapsed(offset: newText.length);
+      }
+    });
   }
 
   void _showSuggestions() {
