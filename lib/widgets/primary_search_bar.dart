@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 
 class PrimarySearchBar extends StatefulWidget {
   final TextEditingController controller;
-  final ValueChanged<String>? onChanged;
-  final Future<List<String>> Function(String partial, List<String> exclude)? onSuggest;
+  final VoidCallback? onSearch;
+  final Future<List<({String name, int count})>> Function(String partial, List<String> exclude)? onSuggest;
 
   final double? width;
   final double? height;
@@ -13,7 +13,7 @@ class PrimarySearchBar extends StatefulWidget {
   const PrimarySearchBar({
     super.key,
     required this.controller,
-    this.onChanged,
+    this.onSearch,
     this.onSuggest,
     this.width = 600,
     this.height = 72,
@@ -31,12 +31,13 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   bool _hasFocus = false;
   bool _disposed = false;
   OverlayEntry? _overlayEntry;
-  List<String> _suggestions = [];
+  List<({String name, int count})> _suggestions = [];
   int _selectedIndex = -1;
+  String? _textBeforeNavigation;
 
   static const _borderColor = Color.fromARGB(255, 117, 117, 117);
   static const _borderSide = BorderSide(color: _borderColor, width: 2);
-  static const _itemHeight = 40.0; // estimated height per suggestion row
+  static const _itemHeight = 40.0;
 
   @override
   void initState() {
@@ -65,36 +66,48 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   }
 
   KeyEventResult _handleKeyEvent(KeyEvent event) {
-    if (_suggestions.isEmpty) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      if (_selectedIndex >= 0 && _selectedIndex < _suggestions.length) {
+        _acceptSuggestion(_suggestions[_selectedIndex].name);
+      } else {
+        widget.onSearch?.call();
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (_suggestions.isEmpty) return KeyEventResult.ignored;
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       final next = (_selectedIndex + 1).clamp(0, _suggestions.length - 1);
       if (next != _selectedIndex) {
+        if (_selectedIndex == -1) _textBeforeNavigation = widget.controller.text;
         _selectedIndex = next;
         _overlayEntry?.markNeedsBuild();
         _scrollToSelected();
+        _previewSuggestion(_suggestions[_selectedIndex].name);
       }
       return KeyEventResult.handled;
     }
 
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _selectedIndex = _selectedIndex <= 0 ? -1 : _selectedIndex - 1;
-      _overlayEntry?.markNeedsBuild();
-      _scrollToSelected();
+      if (_selectedIndex > 0) {
+        _selectedIndex--;
+        _overlayEntry?.markNeedsBuild();
+        _scrollToSelected();
+        _previewSuggestion(_suggestions[_selectedIndex].name);
+      } else if (_selectedIndex == 0) {
+        _selectedIndex = -1;
+        _overlayEntry?.markNeedsBuild();
+        _restoreTextBeforeNavigation();
+      }
       return KeyEventResult.handled;
     }
 
-    if (event.logicalKey == LogicalKeyboardKey.enter ||
-        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-      if (_selectedIndex >= 0 && _selectedIndex < _suggestions.length) {
-        _acceptSuggestion(_suggestions[_selectedIndex]);
-        return KeyEventResult.handled;
-      }
-      return KeyEventResult.ignored;
-    }
-
     if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _restoreTextBeforeNavigation();
       _hideSuggestions();
       return KeyEventResult.handled;
     }
@@ -105,7 +118,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   void _scrollToSelected() {
     if (_selectedIndex < 0) return;
     if (!_suggestionsScrollController.hasClients) return;
-    const topPadding = 4.0;
+    const topPadding = 8.0;
     final itemTop = topPadding + _selectedIndex * _itemHeight;
     final itemBottom = itemTop + _itemHeight;
     final offset = _suggestionsScrollController.offset;
@@ -116,6 +129,26 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     } else if (itemBottom > offset + viewportHeight) {
       _suggestionsScrollController.jumpTo(itemBottom - viewportHeight);
     }
+  }
+
+  void _previewSuggestion(String tag) {
+    final base = _textBeforeNavigation ?? widget.controller.text;
+    final parts = base.trimLeft().split(RegExp(r'\s+'));
+    if (parts.isNotEmpty) parts[parts.length - 1] = tag;
+    final newText = parts.join(' ');
+    widget.controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
+    );
+  }
+
+  void _restoreTextBeforeNavigation() {
+    if (_textBeforeNavigation == null) return;
+    widget.controller.value = TextEditingValue(
+      text: _textBeforeNavigation!,
+      selection: TextSelection.collapsed(offset: _textBeforeNavigation!.length),
+    );
+    _textBeforeNavigation = null;
   }
 
   String _getLastPartial(String text) {
@@ -134,6 +167,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     final partial = _getLastPartial(text);
     if (partial.isEmpty) {
       _hideSuggestions();
+      if (text.trim().isEmpty) widget.onSearch?.call();
       return;
     }
     final overlay = Overlay.of(context);
@@ -157,6 +191,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   }
 
   void _hideSuggestions() {
+    _textBeforeNavigation = null;
     _overlayEntry?.remove();
     _overlayEntry = null;
     if (!_disposed) {
@@ -168,12 +203,11 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   }
 
   void _acceptSuggestion(String tag) {
-    final current = widget.controller.text;
-    final parts = current.trimLeft().split(RegExp(r'\s+'));
+    final base = _textBeforeNavigation ?? widget.controller.text;
+    final parts = base.trimLeft().split(RegExp(r'\s+'));
     if (parts.isNotEmpty) parts[parts.length - 1] = tag;
     final newText = '${parts.join(' ')} ';
     widget.controller.text = newText;
-    widget.onChanged?.call(newText);
     _hideSuggestions();
     _focusNode.requestFocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -181,6 +215,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
         widget.controller.selection = TextSelection.collapsed(offset: newText.length);
       }
     });
+    widget.onSearch?.call();
   }
 
   OverlayEntry _buildOverlay() {
@@ -224,13 +259,15 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
                         behavior: const ScrollBehavior().copyWith(scrollbars: false),
                         child: ListView.builder(
                           controller: _suggestionsScrollController,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           shrinkWrap: true,
+                          itemExtent: _itemHeight,
                           itemCount: _suggestions.length,
                           itemBuilder: (_, i) => _SuggestionItem(
-                            label: _suggestions[i],
+                            label: _suggestions[i].name,
+                            count: _suggestions[i].count,
                             isSelected: i == _selectedIndex,
-                            onTap: () => _acceptSuggestion(_suggestions[i]),
+                            onTap: () => _acceptSuggestion(_suggestions[i].name),
                           ),
                         ),
                       ),
@@ -278,24 +315,34 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
                     ),
             ),
             alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.only(left: 16),
             child: TextField(
               controller: widget.controller,
               focusNode: _focusNode,
               style: TextStyle(fontSize: widget.fontSize, height: 1.0),
               textAlignVertical: TextAlignVertical.center,
               cursorColor: const Color.fromARGB(255, 161, 161, 161),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
                 isCollapsed: true,
                 hintText: "Search...",
-                hintStyle: TextStyle(color: Colors.grey),
+                hintStyle: const TextStyle(color: Colors.grey),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(right: 5),
+                  child: Tooltip(
+                    message: 'Search',
+                    child: IconButton(
+                      onPressed: widget.onSearch,
+                      icon: const Icon(Icons.search_rounded),
+                      color: Colors.grey,
+                      iconSize: (widget.fontSize ?? 32) * 1.0,
+                      splashRadius: 24,
+                    ),
+                  ),
+                ),
               ),
-              onChanged: (text) {
-                widget.onChanged?.call(text);
-                _updateSuggestions(text);
-              },
+              onChanged: _updateSuggestions,
             ),
           ),
         ),
@@ -306,11 +353,13 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
 
 class _SuggestionItem extends StatefulWidget {
   final String label;
+  final int count;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _SuggestionItem({
     required this.label,
+    required this.count,
     required this.isSelected,
     required this.onTap,
   });
@@ -325,7 +374,7 @@ class _SuggestionItemState extends State<_SuggestionItem> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.fromLTRB(6, 2, 11, 2),
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
@@ -339,7 +388,23 @@ class _SuggestionItemState extends State<_SuggestionItem> {
               borderRadius: BorderRadius.circular(6),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Text(widget.label, style: const TextStyle(fontSize: 14)),
+            child: Row(
+              children: [
+                Text(widget.label, style: const TextStyle(fontSize: 14)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF484848),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${widget.count}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF9A9A9A)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

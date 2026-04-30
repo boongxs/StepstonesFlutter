@@ -264,10 +264,11 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  // get all distinct tag names used by items in a folder (for autocomplete)
-  Future<List<String>> getTagNamesInFolder(String folderPath) {
+  // get all distinct tag names with item counts for the folder (for autocomplete)
+  Future<List<({String name, int count})>> getTagNamesInFolder(String folderPath) {
+    final countExpr = countAll();
     final query = selectOnly(tags)
-      ..addColumns([tags.name])
+      ..addColumns([tags.name, countExpr])
       ..join([
         innerJoin(mediaTags, mediaTags.tagId.equalsExp(tags.id)),
         innerJoin(mediaItems, mediaItems.id.equalsExp(mediaTags.mediaId)),
@@ -275,7 +276,10 @@ class AppDatabase extends _$AppDatabase {
       ..where(mediaItems.mediaFolderPath.equals(folderPath))
       ..groupBy([tags.id])
       ..orderBy([OrderingTerm(expression: tags.name)]);
-    return query.map((row) => row.read(tags.name)!).get();
+    return query.map((row) => (
+      name: row.read(tags.name)!,
+      count: row.read(countExpr)!,
+    )).get();
   }
 
   // fetch full media items by filenames (for ghost cleanup)
@@ -398,7 +402,7 @@ class AppDatabase extends _$AppDatabase {
           innerJoin(tags, tags.id.equalsExp(mediaTags.tagId))
         ])
         ..addColumns([mediaTags.mediaId])
-        ..where(mediaTags.mediaId.equalsExp(mediaItems.id) & tags.name.contains(term));
+        ..where(mediaTags.mediaId.equalsExp(mediaItems.id) & tags.name.equals(term));
 
         predicate = predicate & existsQuery(subquery);
       }

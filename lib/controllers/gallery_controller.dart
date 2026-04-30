@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -21,15 +20,13 @@ class GalleryController extends ChangeNotifier {
 
   String? _currentSearchQuery = "";
   String? get currentSearchQuery => _currentSearchQuery;
-  Timer? _searchDebounceTimer;
-
-  SortField _currentSortField = SortField.dateAdded;
+SortField _currentSortField = SortField.dateAdded;
   SortDirection _currentSortDirection = SortDirection.asc;
   SortField get currentSortField => _currentSortField;
   SortDirection get currentSortDirection => _currentSortDirection;
 
   // --- tag autocomplete cache ---
-  List<String>? _tagCache;
+  List<({String name, int count})>? _tagCache;
 
   // --- pagination cache ---
   static const int _pageSize = 200;
@@ -192,13 +189,6 @@ class GalleryController extends ChangeNotifier {
     await fullRefresh(resetScroll: true);
   }
 
-  void onSearchTextChanged(String text) {
-    _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () async {
-      _currentSearchQuery = text;
-      await fullRefresh(resetScroll: true);
-    });
-  }
 
   // --- internal helpers ---
   void _touchPage(int pageIndex) {
@@ -250,13 +240,18 @@ class GalleryController extends ChangeNotifier {
     _tagCache = null;
   }
 
-  Future<List<String>> getSuggestions(String partial, List<String> exclude) async {
+  Future<List<({String name, int count})>> getSuggestions(String partial, List<String> exclude) async {
     if (_session.mediaFolderPath == null) return [];
     _tagCache ??= await _database.getTagNamesInFolder(_session.mediaFolderPath!);
     final lower = partial.toLowerCase();
     return _tagCache!
-        .where((t) => t.startsWith(lower) && !exclude.contains(t))
+        .where((t) => t.name.startsWith(lower) && !exclude.contains(t.name))
         .toList();
+  }
+
+  Future<void> applySearch() async {
+    _currentSearchQuery = searchController.text.trim();
+    await fullRefresh(resetScroll: true);
   }
 
   void clearSearch() {

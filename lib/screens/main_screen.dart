@@ -85,10 +85,8 @@ class _MainScreenDesktopState extends State<MainScreenDesktop> {
                             children: [
                               PrimarySearchBar(
                                 controller: context.read<GalleryController>().searchController,
-                                onChanged: (value) {
-                                  context.read<GalleryController>().onSearchTextChanged(value);
-                                },
                                 onSuggest: context.read<GalleryController>().getSuggestions,
+                                onSearch: () => context.read<GalleryController>().applySearch(),
                               ),
                               const SizedBox(height: 20),
                             ],
