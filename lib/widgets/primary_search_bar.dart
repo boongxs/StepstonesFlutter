@@ -44,7 +44,9 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     _focusNode = FocusNode(onKeyEvent: (_, event) => _handleKeyEvent(event));
     _focusNode.addListener(() {
       setState(() => _hasFocus = _focusNode.hasFocus);
-      if (!_focusNode.hasFocus) {
+      if (_focusNode.hasFocus) {
+        _updateSuggestions(widget.controller.text);
+      } else {
         Future.delayed(const Duration(milliseconds: 150), () {
           if (!_disposed && !_focusNode.hasFocus) _hideSuggestions();
         });
@@ -217,7 +219,6 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
                     child: RawScrollbar(
                       controller: _suggestionsScrollController,
                       thumbVisibility: true,
-                      padding: const EdgeInsets.only(right: 2),
                       child: ScrollConfiguration(
                         behavior: const ScrollBehavior().copyWith(scrollbars: false),
                         child: ListView.builder(
