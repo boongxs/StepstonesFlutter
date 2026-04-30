@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class PrimarySearchBar extends StatefulWidget {
   final TextEditingController controller;
@@ -24,20 +25,23 @@ class PrimarySearchBar extends StatefulWidget {
 }
 
 class _PrimarySearchBarState extends State<PrimarySearchBar> {
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
   final LayerLink _layerLink = LayerLink();
   final ScrollController _suggestionsScrollController = ScrollController();
   bool _hasFocus = false;
   bool _disposed = false;
   OverlayEntry? _overlayEntry;
   List<String> _suggestions = [];
+  int _selectedIndex = -1;
 
   static const _borderColor = Color.fromARGB(255, 117, 117, 117);
   static const _borderSide = BorderSide(color: _borderColor, width: 2);
+  static const _itemHeight = 40.0; // estimated height per suggestion row
 
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode(onKeyEvent: (_, event) => _handleKeyEvent(event));
     _focusNode.addListener(() {
       setState(() => _hasFocus = _focusNode.hasFocus);
       if (!_focusNode.hasFocus) {
@@ -56,6 +60,59 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     _suggestionsScrollController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(KeyEvent event) {
+    if (_suggestions.isEmpty) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      final next = (_selectedIndex + 1).clamp(0, _suggestions.length - 1);
+      if (next != _selectedIndex) {
+        _selectedIndex = next;
+        _overlayEntry?.markNeedsBuild();
+        _scrollToSelected();
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _selectedIndex = _selectedIndex <= 0 ? -1 : _selectedIndex - 1;
+      _overlayEntry?.markNeedsBuild();
+      _scrollToSelected();
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      if (_selectedIndex >= 0 && _selectedIndex < _suggestions.length) {
+        _acceptSuggestion(_suggestions[_selectedIndex]);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _hideSuggestions();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _scrollToSelected() {
+    if (!_suggestionsScrollController.hasClients) return;
+    const topPadding = 4.0;
+    final itemTop = topPadding + _selectedIndex * _itemHeight;
+    final itemBottom = itemTop + _itemHeight;
+    final offset = _suggestionsScrollController.offset;
+    final viewportHeight = _suggestionsScrollController.position.viewportDimension;
+
+    if (itemTop < offset) {
+      _suggestionsScrollController.jumpTo(itemTop);
+    } else if (itemBottom > offset + viewportHeight) {
+      _suggestionsScrollController.jumpTo(itemBottom - viewportHeight);
+    }
   }
 
   String _getLastPartial(String text) {
@@ -83,7 +140,10 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     if (results.isEmpty) {
       _hideSuggestions();
     } else {
-      setState(() => _suggestions = results);
+      setState(() {
+        _suggestions = results;
+        _selectedIndex = -1;
+      });
       if (_overlayEntry == null) {
         _overlayEntry = _buildOverlay();
         overlay.insert(_overlayEntry!);
@@ -96,7 +156,12 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   void _hideSuggestions() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    if (!_disposed) setState(() => _suggestions = []);
+    if (!_disposed) {
+      setState(() {
+        _suggestions = [];
+        _selectedIndex = -1;
+      });
+    }
   }
 
   void _acceptSuggestion(String tag) {
@@ -152,6 +217,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
                     child: RawScrollbar(
                       controller: _suggestionsScrollController,
                       thumbVisibility: true,
+                      padding: const EdgeInsets.only(right: 2),
                       child: ScrollConfiguration(
                         behavior: const ScrollBehavior().copyWith(scrollbars: false),
                         child: ListView.builder(
@@ -161,6 +227,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
                           itemCount: _suggestions.length,
                           itemBuilder: (_, i) => _SuggestionItem(
                             label: _suggestions[i],
+                            isSelected: i == _selectedIndex,
                             onTap: () => _acceptSuggestion(_suggestions[i]),
                           ),
                         ),
@@ -237,9 +304,14 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
 
 class _SuggestionItem extends StatefulWidget {
   final String label;
+  final bool isSelected;
   final VoidCallback onTap;
 
-  const _SuggestionItem({required this.label, required this.onTap});
+  const _SuggestionItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   State<_SuggestionItem> createState() => _SuggestionItemState();
@@ -259,7 +331,9 @@ class _SuggestionItemState extends State<_SuggestionItem> {
           onTap: widget.onTap,
           child: Container(
             decoration: BoxDecoration(
-              color: _isHovered ? const Color(0xFF3D3D3D) : Colors.transparent,
+              color: (widget.isSelected || _isHovered)
+                  ? const Color(0xFF3D3D3D)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
