@@ -103,6 +103,7 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
   }
 
   void _scrollToSelected() {
+    if (_selectedIndex < 0) return;
     if (!_suggestionsScrollController.hasClients) return;
     const topPadding = 4.0;
     final itemTop = topPadding + _selectedIndex * _itemHeight;
