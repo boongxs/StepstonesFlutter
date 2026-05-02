@@ -17,7 +17,7 @@ class MediaGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionController>();
-    final status = context.watch<StatusCardProvider>();
+    final isLoading = context.select<StatusCardProvider, bool>((s) => s.isLoading);
     final totalItemCount = context.select<GalleryController, int>((g) => g.totalItemCount); // only rebuild grid if total item count changes
     final gallery = context.read<GalleryController>(); // to pass to scrollController but doesn't cause rebuild
 
@@ -30,7 +30,7 @@ class MediaGrid extends StatelessWidget {
       );
     }
 
-    if (totalItemCount == 0 && !status.isLoading) {
+    if (totalItemCount == 0 && !isLoading) {
       return const Center(
         child: Text(
           "No media items found"
