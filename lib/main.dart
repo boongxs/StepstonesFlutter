@@ -95,6 +95,8 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       scaffoldMessengerKey: MediaActionService.rootMessengerKey,
       title: "Stepstones",
+      locale: const Locale('en', 'US'),
+      supportedLocales: const [Locale('en', 'US')],
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFF282828),
         colorScheme: ColorScheme.fromSeed(

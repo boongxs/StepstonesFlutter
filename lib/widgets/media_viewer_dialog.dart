@@ -100,7 +100,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
       initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
-      initialEntryMode: DatePickerEntryMode.inputOnly,
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
     );
     if (picked == null) return;
 
