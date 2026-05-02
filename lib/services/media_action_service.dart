@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:stepstones_flt/widgets/edit_tags_dialog.dart';
 import '../data/app_database.dart';
 import 'clipboard_service.dart';
 import '../widgets/media_viewer_dialog.dart';
 import '../utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import '../controllers/gallery_controller.dart';
-import '../locator.dart';
 class MediaActionService {
   MediaActionService._();
   static final GlobalKey<ScaffoldMessengerState> rootMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -21,41 +19,6 @@ class MediaActionService {
     if (context.mounted) {
       context.showStepstonesSnackBar(
         success ? "Media item copied successfully" : "Failed to copy media item",
-        isError: !success,
-      );
-    }
-  }
-
-  // edit command
-  static Future<void> onEdit(BuildContext context, MediaItem item) async {
-    // grab controller before opening dialog
-    final gallery = context.read<GalleryController>();
-
-    // fetch tags from database before opening dialog
-    final db = getIt<AppDatabase>();
-    final tagsString = await db.getTagsForMediaItem(item.id);
-
-    if (!context.mounted) return;
-
-    // open dialog
-    final newTags = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => EditTagsDialog(
-        initialTags: tagsString, // pass existing tags or empty
-      ),
-    );
-
-    // if user cancelled, stop
-    if (newTags == null) return;
-
-    // save changes
-    final success = await gallery.updateTags(item, newTags);
-
-    // ui feedback
-    if (context.mounted) {
-      context.showStepstonesSnackBar(
-        success ? "Tags updated successfully" : "Failed to update tags",
         isError: !success,
       );
     }

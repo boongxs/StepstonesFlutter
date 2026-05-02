@@ -299,10 +299,10 @@ class _MediaCellState extends State<_MediaCell> {
                             hoverColor: const Color(0xFFFFC600),
                             onTap: () => MediaActionService.onCopy(context, widget.item!),
                           ),
-                          _QuadrantButton( // edit
-                            icon: Icons.edit_rounded,
-                            hoverColor: const Color(0xFF25BB00),
-                            onTap: () => MediaActionService.onEdit(context, widget.item!),
+                          _QuadrantButton( // delete
+                            icon: Icons.delete_outline_rounded,
+                            hoverColor: const Color(0xFFFF5454),
+                            onTap: () => MediaActionService.onDelete(context, widget.item!),
                           ),
                         ],
                       ),
@@ -311,15 +311,10 @@ class _MediaCellState extends State<_MediaCell> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _QuadrantButton( // enlarge
+                          _QuadrantButton( // enlarge — fills full width
                             icon: Icons.fullscreen_rounded,
                             hoverColor: const Color(0xFF4FAFFF),
                             onTap: () => MediaActionService.onEnlarge(context, widget.index),
-                          ),
-                          _QuadrantButton(
-                            icon: Icons.delete_outline_rounded,
-                            hoverColor: const Color(0xFFFF5454),
-                            onTap: () => MediaActionService.onDelete(context, widget.item!),
                           ),
                         ],
                       ),

@@ -33,6 +33,9 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   int? _lastLoadedItemId;
   final Map<int, String?> _dateOverrides = {};
   final Map<int, String?> _timeOverrides = {};
+  final TextEditingController _tagsController = TextEditingController();
+  final ScrollController _tagsScrollController = ScrollController();
+  String _loadedTags = '';
 
   @override
   void initState() {
@@ -57,6 +60,8 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
 
   @override
   void dispose() {
+    _tagsController.dispose();
+    _tagsScrollController.dispose();
     _focusNode.dispose();
     _transformationController.dispose();
     _evictCurrentImage();
@@ -153,17 +158,34 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     setState(() => _localTime = null);
   }
 
-  void _goToPrevious() {
+  Future<void> _loadTagsForItem(int itemId) async {
+    final tags = await getIt<AppDatabase>().getTagsForMediaItem(itemId);
+    if (!mounted || _lastLoadedItemId != itemId) return;
+    _loadedTags = tags;
+    _tagsController.text = tags;
+  }
+
+  Future<void> _saveTags() async {
+    final item = _gallery.getItem(_currentIndex);
+    if (item == null) return;
+    if (_tagsController.text == _loadedTags) return;
+    await _gallery.updateTags(item, _tagsController.text);
+    _loadedTags = _tagsController.text;
+  }
+
+  Future<void> _goToPrevious() async {
     if (_currentIndex > 0) {
+      await _saveTags();
       _evictCurrentImage();
       _resetZoom();
       setState(() => _currentIndex--);
     }
   }
 
-  void _goToNext() {
-    final totalCount = context.read<GalleryController>().totalItemCount;
+  Future<void> _goToNext() async {
+    final totalCount = _gallery.totalItemCount;
     if (_currentIndex < totalCount - 1) {
+      await _saveTags();
       _evictCurrentImage();
       _resetZoom();
       setState(() => _currentIndex++);
@@ -177,7 +199,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
       } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
         _goToNext();
       } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-        Navigator.pop(context);
+        _saveTags().then((_) { if (mounted) Navigator.pop(context); });
       }
     }
   }
@@ -202,6 +224,7 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
           _lastLoadedItemId = item.id;
           _localDate = _dateOverrides.containsKey(item.id) ? _dateOverrides[item.id] : item.date;
           _localTime = _timeOverrides.containsKey(item.id) ? _timeOverrides[item.id] : item.time;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _loadTagsForItem(item.id));
         }
 
         // get screen size
@@ -287,7 +310,11 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                       Positioned.fill(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => Navigator.pop(context),
+                          onTap: () async {
+                            final nav = Navigator.of(context);
+                            await _saveTags();
+                            nav.pop();
+                          },
                           child: const SizedBox.expand(),
                         ),
                       ),
@@ -400,21 +427,11 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
 
                               const SizedBox(width: 8),
 
-                              // edit tags
-                              _ToolbarButton(
-                                icon: Icons.edit_rounded,
-                                color: const Color(0xFF25BB00), 
-                                tooltip: "Edit Tags", 
-                                onPressed: () => MediaActionService.onEdit(dialogContext, item),
-                              ),
-
-                              const SizedBox(width: 8),
-
                               // delete
                               _ToolbarButton(
                                 icon: Icons.delete_outline_rounded,
-                                color: const Color(0xFFFF5454), 
-                                tooltip: "Delete", 
+                                color: const Color(0xFFFF5454),
+                                tooltip: "Delete",
                                 onPressed: () async {
                                   await MediaActionService.onDelete(
                                     dialogContext,
@@ -425,6 +442,8 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                                   );
                                 },
                               ),
+
+                              const SizedBox(width: 5),
 
                               // zoom slider
                               if (isImageOrGif) ...[
@@ -462,7 +481,11 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                               IconButton(
                                 icon: const Icon(Icons.close_rounded, color: Colors.white),
                                 tooltip: "Close Viewer",
-                                onPressed: () => Navigator.pop(context),
+                                onPressed: () async {
+                                  final nav = Navigator.of(context);
+                                  await _saveTags();
+                                  nav.pop();
+                                },
                               ),
                             ],
                           ),
@@ -503,6 +526,16 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                             ),
                           ),
                         ),
+
+                      // tags panel
+                      Positioned(
+                        top: 20,
+                        left: 20,
+                        child: _TagsPanel(
+                          tagsController: _tagsController,
+                          scrollController: _tagsScrollController,
+                        ),
+                      ),
                     ],
                   );
                 },
@@ -595,6 +628,68 @@ class _InfoRow extends StatelessWidget {
                 onTap: onClear,
                 child: const Icon(Icons.close_rounded, size: 14, color: Colors.white38),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// tags panel widget shown in Enlarge view
+class _TagsPanel extends StatelessWidget {
+  final TextEditingController tagsController;
+  final ScrollController scrollController;
+
+  const _TagsPanel({
+    required this.tagsController,
+    required this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {}, // swallow taps so they don't close the viewer
+      child: Container(
+        width: 250,
+        height: 220,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              child: Text(
+                "Tags",
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ),
+            const Divider(height: 1, thickness: 1, color: Colors.white12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Scrollbar(
+                  controller: scrollController,
+                  child: TextField(
+                    controller: tagsController,
+                    scrollController: scrollController,
+                    maxLines: null,
+                    expands: true,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: const InputDecoration(
+                      hintText: "Type space-separated tags here...",
+                      hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.all(4),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

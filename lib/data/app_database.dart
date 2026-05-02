@@ -298,7 +298,7 @@ class AppDatabase extends _$AppDatabase {
     ));
   }
 
-  // reconstructs space-separated string for edit tags dialog and bundler
+  // reconstructs space-separated string for tags panel and bundler
   Future<String> getTagsForMediaItem(int mediaId) async {
     final query = select(tags).join([
       innerJoin(mediaTags, mediaTags.tagId.equalsExp(tags.id))
