@@ -358,8 +358,7 @@ class AppDatabase extends _$AppDatabase {
   Future<List<PendingReview>> getPendingReviews() {
     return (select(pendingReviews)
       ..orderBy([
-        (t) => OrderingTerm(expression: t.uploadedItemId),
-        (t) => OrderingTerm(expression: t.id),
+        (t) => OrderingTerm(expression: t.similarityPercent, mode: OrderingMode.desc),
       ])
     ).get();
   }
@@ -367,8 +366,7 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<PendingReview>> watchPendingReviews() {
     return (select(pendingReviews)
       ..orderBy([
-        (t) => OrderingTerm(expression: t.uploadedItemId),
-        (t) => OrderingTerm(expression: t.id),
+        (t) => OrderingTerm(expression: t.similarityPercent, mode: OrderingMode.desc),
       ])
     ).watch();
   }

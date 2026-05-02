@@ -236,9 +236,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                 ),
                                 child: Slider(
                                   value: _similarityThreshold,
-                                  min: 75,
+                                  min: 50,
                                   max: 95,
-                                  divisions: 4,
+                                  divisions: 9,
                                   activeColor: localTheme.colorScheme.primary,
                                   inactiveColor: Colors.white24,
                                   onChanged: (val) {
