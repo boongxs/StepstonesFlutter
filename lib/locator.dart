@@ -6,7 +6,7 @@ import 'services/file_picker_service.dart';
 import 'services/file_service.dart';
 import 'data/app_database.dart';
 import 'controllers/export_controller.dart';
-import 'services/desktop_media_utility_service.dart';
+import 'services/media_utility_service.dart';
 
 final getIt = GetIt.instance;
 

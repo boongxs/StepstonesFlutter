@@ -6,7 +6,7 @@ import 'package:image/image.dart' as img;
 import '../services/logger_service.dart';
 import '../constants.dart';
 import '../locator.dart';
-import '../services/desktop_media_utility_service.dart';
+import '../services/media_utility_service.dart';
 
 class _ThumbnailRequest {
   final String sourcePath;
@@ -31,14 +31,8 @@ Future<bool> _generateImageInIsolate(_ThumbnailRequest request) async {
     final img.Image? decoded = img.decodeImage(bytes);
     if (decoded == null) return false;
 
-    // handle GIF files
-    img.Image singleFrame = decoded;
-    if (decoded.numFrames > 1) {
-      singleFrame = decoded.frames[0];
-    }
-
     // resize and crop
-    final resized = img.copyResizeCropSquare(singleFrame, size: request.size);
+    final resized = img.copyResizeCropSquare(decoded, size: request.size);
 
     // encode
     List<int> encodedBytes;
@@ -89,18 +83,18 @@ class ThumbnailHelper {
       }
 
       // generate thumbnail
-      if (fileType == "image" || fileType == "gif") {
+      if (fileType == "image") {
         final request = _ThumbnailRequest(
-          sourcePath: sourcePath, 
-          destinationPath: thumbFile.path, 
-          isTransparent: isTransparent, 
+          sourcePath: sourcePath,
+          destinationPath: thumbFile.path,
+          isTransparent: isTransparent,
           size: 250,
         );
 
         final success = await compute(_generateImageInIsolate, request);
         return success ? thumbFileName : null;
       }
-      else if (fileType == "video") {
+      else if (fileType == "video" || fileType == "gif") {
         final success = await _processVideo(sourcePath, thumbFile, durationMs);
         return success ? thumbFileName : null;
       }
@@ -112,32 +106,13 @@ class ThumbnailHelper {
     }
   }
 
-  // video logic (extract frame -> image logic)
+  // video/gif logic (single-pass ffmpeg extract, scale, and crop)
   static Future<bool> _processVideo(String sourcePath, File target, int durationMs) async {
     try {
-      final tempFrame = File("${target.path}.tmp.jpg"); // extract frame to a temp file
-
       final utilityService = getIt<MediaUtilityService>();
-      final extractionSuccess = await utilityService.extractVideoFrame(sourcePath, tempFrame.path, durationMs);
-
-      if (!extractionSuccess) return false;
-
-      final request = _ThumbnailRequest(
-        sourcePath: tempFrame.path, 
-        destinationPath: target.path, 
-        isTransparent: false, 
-        size: 250,
-      );
-
-      // process the temp frame (crop to 250x250)
-      final success = await compute(_generateImageInIsolate, request);
-
-      // cleanup temp
-      if (await tempFrame.exists()) await tempFrame.delete();
-
-      return success;
+      return await utilityService.generateVideoThumbnail(sourcePath, target.path, durationMs);
     } catch (e) {
-      LogService.e("Video processing failed: $e");
+      LogService.e("Video thumbnail generation failed: $e");
       return false;
     }
   }

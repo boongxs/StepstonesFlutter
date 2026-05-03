@@ -30,9 +30,9 @@ class MediaUtilityService {
   }
 
 
-  Future<bool> extractVideoFrame(String sourcePath, String tempFramePath, int durationMs) async {
+  Future<bool> generateVideoThumbnail(String sourcePath, String outputPath, int durationMs) async {
     try {
-      int targetMs = (durationMs * 0.10).toInt();
+      final targetMs = (durationMs * 0.10).toInt();
       final timeString = _formatDuration(targetMs);
 
       final result = await Process.run(
@@ -42,7 +42,8 @@ class MediaUtilityService {
           '-ss', timeString,
           '-i', sourcePath,
           '-vframes', '1',
-          tempFramePath
+          '-vf', 'scale=250:250:force_original_aspect_ratio=increase,crop=250:250',
+          outputPath,
         ]
       );
 
@@ -51,9 +52,9 @@ class MediaUtilityService {
         return false;
       }
 
-      return await File(tempFramePath).exists();
+      return await File(outputPath).exists();
     } catch (e) {
-      LogService.e("Desktop Video frame extraction failed: $e");
+      LogService.e("Video thumbnail generation failed: $e");
       return false;
     }
   }
