@@ -14,6 +14,7 @@ import '../utils/media_helper.dart';
 import '../utils/metadata_helper.dart';
 import '../utils/thumbnail_helper.dart';
 import '../utils/phash_helper.dart';
+import '../utils/audio_fingerprint_helper.dart';
 import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
@@ -181,6 +182,9 @@ class UploadController extends ChangeNotifier {
         if (type == "image") {
           await _checkPerceptualDuplicates(insertedId, finalPath, folderPath);
         }
+        if (type == "video" || type == "audio") {
+          await _checkAudioDuplicates(insertedId, finalPath, folderPath);
+        }
       } catch (e) {
         if (e is SqliteException && e.extendedResultCode == 2067) {
           LogService.i("Duplicate database entry skipped: $fileName");
@@ -297,6 +301,10 @@ class UploadController extends ChangeNotifier {
             final mediaPath = p.join(destFolder, hashedFileName);
             await _checkPerceptualDuplicates(insertedId, mediaPath, destFolder);
           }
+          if (data["fileType"] == "video" || data["fileType"] == "audio") {
+            final mediaPath = p.join(destFolder, hashedFileName);
+            await _checkAudioDuplicates(insertedId, mediaPath, destFolder);
+          }
         } catch (e) {
           LogService.e("Failed to insert media item into database: $hashedFileName", e);
         }
@@ -334,6 +342,36 @@ class UploadController extends ChangeNotifier {
 
     if (flagged > 0) {
       LogService.i("Flagged $flagged potential duplicate(s) for review.");
+    }
+  }
+
+  Future<void> _checkAudioDuplicates(int uploadedId, String filePath, String folderPath) async {
+    final fingerprint = await AudioFingerprintHelper.computeFingerprint(filePath);
+    if (fingerprint.isEmpty) {
+      LogService.w("No audio fingerprint for $filePath — skipping duplicate check.");
+      return;
+    }
+
+    await db.updateAudioFingerprint(uploadedId, AudioFingerprintHelper.fingerprintToString(fingerprint));
+
+    final existingItems = await db.getItemsWithAudioFingerprint(folderPath);
+    final existing = existingItems
+        .where((item) => item.id != uploadedId)
+        .map((item) => {
+              'id': item.id,
+              'fingerprint': AudioFingerprintHelper.fingerprintFromString(item.audioFingerprint!) ?? <int>[],
+            })
+        .where((e) => (e['fingerprint'] as List).isNotEmpty)
+        .toList();
+
+    if (existing.isEmpty) return;
+
+    final matches = await AudioFingerprintHelper.compareAll(fingerprint, existing, settings.similarityThreshold);
+    for (final match in matches) {
+      await db.insertPendingReview(uploadedId, match['id'] as int, match['similarity'] as double);
+    }
+    if (matches.isNotEmpty) {
+      LogService.i("Flagged ${matches.length} potential audio/video duplicate(s) for review.");
     }
   }
 }

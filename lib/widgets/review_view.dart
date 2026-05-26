@@ -115,6 +115,7 @@ class _ReviewViewState extends State<ReviewView> {
                               thumbnailPath: review.uploadedThumbnailPath,
                               fileName: uploaded?.hashedFileName ?? "—",
                               detail: null,
+                              fileType: uploaded?.fileType,
                             ),
                           ),
                           const SizedBox(width: 20),
@@ -127,6 +128,7 @@ class _ReviewViewState extends State<ReviewView> {
                               detail: similarity != null
                                   ? "${similarity.toStringAsFixed(1)}% similar"
                                   : null,
+                              fileType: matched?.fileType,
                             ),
                           ),
                         ],
@@ -201,6 +203,7 @@ class _FilePanel extends StatelessWidget {
   final String? thumbnailPath;
   final String fileName;
   final String? detail;
+  final String? fileType;
 
   const _FilePanel({
     required this.label,
@@ -208,6 +211,7 @@ class _FilePanel extends StatelessWidget {
     required this.thumbnailPath,
     required this.fileName,
     required this.detail,
+    this.fileType,
   });
 
   @override
@@ -251,8 +255,16 @@ class _FilePanel extends StatelessWidget {
                             child: Icon(Icons.broken_image, color: Colors.white24, size: 40),
                           ),
                         )
-                      : const Center(
-                          child: Icon(Icons.image_outlined, color: Colors.white24, size: 40),
+                      : Center(
+                          child: Icon(
+                            fileType == 'audio'
+                                ? Icons.audiotrack_rounded
+                                : fileType == 'video'
+                                    ? Icons.movie_outlined
+                                    : Icons.image_outlined,
+                            color: Colors.white24,
+                            size: 40,
+                          ),
                         ),
                 ),
               ),

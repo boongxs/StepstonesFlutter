@@ -7,6 +7,7 @@ import '../data/app_database.dart';
 import '../services/logger_service.dart';
 import '../utils/thumbnail_helper.dart';
 import '../utils/phash_helper.dart';
+import '../utils/audio_fingerprint_helper.dart';
 import '../providers/status_card_provider.dart';
 import 'session_controller.dart';
 import 'gallery_controller.dart';
@@ -73,6 +74,9 @@ class SyncController extends ChangeNotifier {
 
       jobStatus.updateTitle("Backfilling image hashes");
       await _backfillPerceptualHashes(folderPath);
+
+      jobStatus.updateTitle("Backfilling audio fingerprints");
+      await _backfillAudioFingerprints(folderPath);
 
       jobStatus.finishJob("Media folder synchronized");
     } catch (e) {
@@ -244,5 +248,22 @@ class SyncController extends ChangeNotifier {
     }
 
     LogService.i("Backfilled perceptual hash for $successCount/${items.length} image items.");
+  }
+
+  Future<void> _backfillAudioFingerprints(String folderPath) async {
+    final items = await db.getItemsNeedingAudioFingerprint(folderPath);
+    if (items.isEmpty) return;
+
+    int successCount = 0;
+    for (final item in items) {
+      final sourcePath = p.join(folderPath, item.hashedFileName);
+      final fingerprint = await AudioFingerprintHelper.computeFingerprint(sourcePath);
+      if (fingerprint.isNotEmpty) {
+        await db.updateAudioFingerprint(item.id, AudioFingerprintHelper.fingerprintToString(fingerprint));
+        successCount++;
+      }
+    }
+
+    LogService.i("Backfilled audio fingerprint for $successCount/${items.length} video/audio items.");
   }
 }

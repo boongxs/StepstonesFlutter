@@ -131,6 +131,17 @@ class $MediaItemsTable extends MediaItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _audioFingerprintMeta = const VerificationMeta(
+    'audioFingerprint',
+  );
+  @override
+  late final GeneratedColumn<String> audioFingerprint = GeneratedColumn<String>(
+    'audio_fingerprint',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _dateMeta = const VerificationMeta('date');
   @override
   late final GeneratedColumn<String> date = GeneratedColumn<String>(
@@ -162,6 +173,7 @@ class $MediaItemsTable extends MediaItems
     width,
     height,
     perceptualHash,
+    audioFingerprint,
     date,
     time,
   ];
@@ -265,6 +277,15 @@ class $MediaItemsTable extends MediaItems
         ),
       );
     }
+    if (data.containsKey('audio_fingerprint')) {
+      context.handle(
+        _audioFingerprintMeta,
+        audioFingerprint.isAcceptableOrUnknown(
+          data['audio_fingerprint']!,
+          _audioFingerprintMeta,
+        ),
+      );
+    }
     if (data.containsKey('date')) {
       context.handle(
         _dateMeta,
@@ -334,6 +355,10 @@ class $MediaItemsTable extends MediaItems
         DriftSqlType.string,
         data['${effectivePrefix}perceptual_hash'],
       ),
+      audioFingerprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}audio_fingerprint'],
+      ),
       date: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}date'],
@@ -363,6 +388,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
   final int width;
   final int height;
   final String? perceptualHash;
+  final String? audioFingerprint;
   final String? date;
   final String? time;
   const MediaItem({
@@ -377,6 +403,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     required this.width,
     required this.height,
     this.perceptualHash,
+    this.audioFingerprint,
     this.date,
     this.time,
   });
@@ -399,6 +426,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     map['height'] = Variable<int>(height);
     if (!nullToAbsent || perceptualHash != null) {
       map['perceptual_hash'] = Variable<String>(perceptualHash);
+    }
+    if (!nullToAbsent || audioFingerprint != null) {
+      map['audio_fingerprint'] = Variable<String>(audioFingerprint);
     }
     if (!nullToAbsent || date != null) {
       map['date'] = Variable<String>(date);
@@ -428,6 +458,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       perceptualHash: perceptualHash == null && nullToAbsent
           ? const Value.absent()
           : Value(perceptualHash),
+      audioFingerprint: audioFingerprint == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioFingerprint),
       date: date == null && nullToAbsent ? const Value.absent() : Value(date),
       time: time == null && nullToAbsent ? const Value.absent() : Value(time),
     );
@@ -450,6 +483,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       width: serializer.fromJson<int>(json['width']),
       height: serializer.fromJson<int>(json['height']),
       perceptualHash: serializer.fromJson<String?>(json['perceptualHash']),
+      audioFingerprint: serializer.fromJson<String?>(json['audioFingerprint']),
       date: serializer.fromJson<String?>(json['date']),
       time: serializer.fromJson<String?>(json['time']),
     );
@@ -469,6 +503,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       'width': serializer.toJson<int>(width),
       'height': serializer.toJson<int>(height),
       'perceptualHash': serializer.toJson<String?>(perceptualHash),
+      'audioFingerprint': serializer.toJson<String?>(audioFingerprint),
       'date': serializer.toJson<String?>(date),
       'time': serializer.toJson<String?>(time),
     };
@@ -486,6 +521,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     int? width,
     int? height,
     Value<String?> perceptualHash = const Value.absent(),
+    Value<String?> audioFingerprint = const Value.absent(),
     Value<String?> date = const Value.absent(),
     Value<String?> time = const Value.absent(),
   }) => MediaItem(
@@ -504,6 +540,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     perceptualHash: perceptualHash.present
         ? perceptualHash.value
         : this.perceptualHash,
+    audioFingerprint: audioFingerprint.present
+        ? audioFingerprint.value
+        : this.audioFingerprint,
     date: date.present ? date.value : this.date,
     time: time.present ? time.value : this.time,
   );
@@ -530,6 +569,9 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
       perceptualHash: data.perceptualHash.present
           ? data.perceptualHash.value
           : this.perceptualHash,
+      audioFingerprint: data.audioFingerprint.present
+          ? data.audioFingerprint.value
+          : this.audioFingerprint,
       date: data.date.present ? data.date.value : this.date,
       time: data.time.present ? data.time.value : this.time,
     );
@@ -549,6 +591,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           ..write('width: $width, ')
           ..write('height: $height, ')
           ..write('perceptualHash: $perceptualHash, ')
+          ..write('audioFingerprint: $audioFingerprint, ')
           ..write('date: $date, ')
           ..write('time: $time')
           ..write(')'))
@@ -568,6 +611,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
     width,
     height,
     perceptualHash,
+    audioFingerprint,
     date,
     time,
   );
@@ -586,6 +630,7 @@ class MediaItem extends DataClass implements Insertable<MediaItem> {
           other.width == this.width &&
           other.height == this.height &&
           other.perceptualHash == this.perceptualHash &&
+          other.audioFingerprint == this.audioFingerprint &&
           other.date == this.date &&
           other.time == this.time);
 }
@@ -602,6 +647,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
   final Value<int> width;
   final Value<int> height;
   final Value<String?> perceptualHash;
+  final Value<String?> audioFingerprint;
   final Value<String?> date;
   final Value<String?> time;
   const MediaItemsCompanion({
@@ -616,6 +662,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     this.width = const Value.absent(),
     this.height = const Value.absent(),
     this.perceptualHash = const Value.absent(),
+    this.audioFingerprint = const Value.absent(),
     this.date = const Value.absent(),
     this.time = const Value.absent(),
   });
@@ -631,6 +678,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     this.width = const Value.absent(),
     this.height = const Value.absent(),
     this.perceptualHash = const Value.absent(),
+    this.audioFingerprint = const Value.absent(),
     this.date = const Value.absent(),
     this.time = const Value.absent(),
   }) : fileHash = Value(fileHash),
@@ -650,6 +698,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Expression<int>? width,
     Expression<int>? height,
     Expression<String>? perceptualHash,
+    Expression<String>? audioFingerprint,
     Expression<String>? date,
     Expression<String>? time,
   }) {
@@ -665,6 +714,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       if (width != null) 'width': width,
       if (height != null) 'height': height,
       if (perceptualHash != null) 'perceptual_hash': perceptualHash,
+      if (audioFingerprint != null) 'audio_fingerprint': audioFingerprint,
       if (date != null) 'date': date,
       if (time != null) 'time': time,
     });
@@ -682,6 +732,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     Value<int>? width,
     Value<int>? height,
     Value<String?>? perceptualHash,
+    Value<String?>? audioFingerprint,
     Value<String?>? date,
     Value<String?>? time,
   }) {
@@ -697,6 +748,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
       width: width ?? this.width,
       height: height ?? this.height,
       perceptualHash: perceptualHash ?? this.perceptualHash,
+      audioFingerprint: audioFingerprint ?? this.audioFingerprint,
       date: date ?? this.date,
       time: time ?? this.time,
     );
@@ -738,6 +790,9 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
     if (perceptualHash.present) {
       map['perceptual_hash'] = Variable<String>(perceptualHash.value);
     }
+    if (audioFingerprint.present) {
+      map['audio_fingerprint'] = Variable<String>(audioFingerprint.value);
+    }
     if (date.present) {
       map['date'] = Variable<String>(date.value);
     }
@@ -761,6 +816,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItem> {
           ..write('width: $width, ')
           ..write('height: $height, ')
           ..write('perceptualHash: $perceptualHash, ')
+          ..write('audioFingerprint: $audioFingerprint, ')
           ..write('date: $date, ')
           ..write('time: $time')
           ..write(')'))
@@ -1546,6 +1602,7 @@ typedef $$MediaItemsTableCreateCompanionBuilder =
       Value<int> width,
       Value<int> height,
       Value<String?> perceptualHash,
+      Value<String?> audioFingerprint,
       Value<String?> date,
       Value<String?> time,
     });
@@ -1562,6 +1619,7 @@ typedef $$MediaItemsTableUpdateCompanionBuilder =
       Value<int> width,
       Value<int> height,
       Value<String?> perceptualHash,
+      Value<String?> audioFingerprint,
       Value<String?> date,
       Value<String?> time,
     });
@@ -1694,6 +1752,11 @@ class $$MediaItemsTableFilterComposer
 
   ColumnFilters<String> get perceptualHash => $composableBuilder(
     column: $table.perceptualHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get audioFingerprint => $composableBuilder(
+    column: $table.audioFingerprint,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1847,6 +1910,11 @@ class $$MediaItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get audioFingerprint => $composableBuilder(
+    column: $table.audioFingerprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get date => $composableBuilder(
     column: $table.date,
     builder: (column) => ColumnOrderings(column),
@@ -1907,6 +1975,11 @@ class $$MediaItemsTableAnnotationComposer
 
   GeneratedColumn<String> get perceptualHash => $composableBuilder(
     column: $table.perceptualHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get audioFingerprint => $composableBuilder(
+    column: $table.audioFingerprint,
     builder: (column) => column,
   );
 
@@ -2035,6 +2108,7 @@ class $$MediaItemsTableTableManager
                 Value<int> width = const Value.absent(),
                 Value<int> height = const Value.absent(),
                 Value<String?> perceptualHash = const Value.absent(),
+                Value<String?> audioFingerprint = const Value.absent(),
                 Value<String?> date = const Value.absent(),
                 Value<String?> time = const Value.absent(),
               }) => MediaItemsCompanion(
@@ -2049,6 +2123,7 @@ class $$MediaItemsTableTableManager
                 width: width,
                 height: height,
                 perceptualHash: perceptualHash,
+                audioFingerprint: audioFingerprint,
                 date: date,
                 time: time,
               ),
@@ -2065,6 +2140,7 @@ class $$MediaItemsTableTableManager
                 Value<int> width = const Value.absent(),
                 Value<int> height = const Value.absent(),
                 Value<String?> perceptualHash = const Value.absent(),
+                Value<String?> audioFingerprint = const Value.absent(),
                 Value<String?> date = const Value.absent(),
                 Value<String?> time = const Value.absent(),
               }) => MediaItemsCompanion.insert(
@@ -2079,6 +2155,7 @@ class $$MediaItemsTableTableManager
                 width: width,
                 height: height,
                 perceptualHash: perceptualHash,
+                audioFingerprint: audioFingerprint,
                 date: date,
                 time: time,
               ),

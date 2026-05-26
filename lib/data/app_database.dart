@@ -22,6 +22,7 @@ class MediaItems extends Table {
   IntColumn get width => integer().withDefault(const Constant(0))();
   IntColumn get height => integer().withDefault(const Constant(0))();
   TextColumn get perceptualHash => text().nullable()();
+  TextColumn get audioFingerprint => text().nullable()();
   TextColumn get date => text().nullable()();
   TextColumn get time => text().nullable()();
 
@@ -64,7 +65,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -86,6 +87,9 @@ class AppDatabase extends _$AppDatabase {
           final names = cols.map((r) => r.read<String>('name')).toSet();
           if (!names.contains('date')) await m.addColumn(mediaItems, mediaItems.date);
           if (!names.contains('time')) await m.addColumn(mediaItems, mediaItems.time);
+        }
+        if (from < 5) {
+          await customStatement('ALTER TABLE media_items ADD COLUMN audio_fingerprint TEXT');
         }
       },
       // foreign key enforcement to ensure deleting a media item correctly executes
@@ -340,6 +344,32 @@ class AppDatabase extends _$AppDatabase {
       ..where((t) => t.mediaFolderPath.equals(folderPath))
       ..where((t) => t.fileType.equals('image'))
       ..where((t) => t.perceptualHash.isNotNull())
+    ).get();
+  }
+
+  // --- Audio fingerprint methods ---
+
+  Future<void> updateAudioFingerprint(int id, String fingerprint) {
+    return (update(mediaItems)..where((t) => t.id.equals(id))).write(
+      MediaItemsCompanion(audioFingerprint: Value(fingerprint)),
+    );
+  }
+
+  // video/audio items in folder missing an audio fingerprint (for backfill)
+  Future<List<MediaItem>> getItemsNeedingAudioFingerprint(String folderPath) {
+    return (select(mediaItems)
+      ..where((t) => t.mediaFolderPath.equals(folderPath))
+      ..where((t) => t.fileType.equals('video') | t.fileType.equals('audio'))
+      ..where((t) => t.audioFingerprint.isNull())
+    ).get();
+  }
+
+  // all video/audio items in folder that have an audio fingerprint (for similarity comparison)
+  Future<List<MediaItem>> getItemsWithAudioFingerprint(String folderPath) {
+    return (select(mediaItems)
+      ..where((t) => t.mediaFolderPath.equals(folderPath))
+      ..where((t) => t.fileType.equals('video') | t.fileType.equals('audio'))
+      ..where((t) => t.audioFingerprint.isNotNull())
     ).get();
   }
 
