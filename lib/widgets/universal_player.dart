@@ -395,7 +395,6 @@ class _VolumeControl extends StatefulWidget {
 }
 
 class _VolumeControlState extends State<_VolumeControl> {
-  bool _isHovered = false;
   late double _lastVolume;
 
   @override
@@ -422,63 +421,49 @@ class _VolumeControlState extends State<_VolumeControl> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: StreamBuilder<double>(
-        stream: widget.player.stream.volume,
-        builder: (context, snapshot) {
-          final fallbackVolume = context.read<SettingsController>().defaultVolume;
-          final volume = snapshot.data ?? fallbackVolume;
+    return StreamBuilder<double>(
+      stream: widget.player.stream.volume,
+      builder: (context, snapshot) {
+        final fallbackVolume = context.read<SettingsController>().defaultVolume;
+        final volume = snapshot.data ?? fallbackVolume;
 
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // volume icon/mute toggle
-              IconButton(
-                iconSize: 28.0,
-                icon: Icon(_getVolumeIcon(volume)),
-                color: Colors.white,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () => _toggleMute(volume),
-              ),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              iconSize: 28.0,
+              icon: Icon(_getVolumeIcon(volume)),
+              color: Colors.white,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _toggleMute(volume),
+            ),
 
-              // expanding volume slider
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                width: _isHovered ? 80.0 : 0.0,
-                margin: EdgeInsets.only(left: _isHovered ? 8.0 : 0.0),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: SizedBox(
-                    width: 80.0,
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 2.0,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5.0),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 10.0),
-                      ),
-                      child: Slider(
-                        value: volume,
-                        max: 100.0,
-                        activeColor: Colors.white,
-                        inactiveColor: Colors.white.withValues(alpha: 0.3),
-                        onChanged: (val) {
-                          widget.player.setVolume(val);
-                          if (val > 0) _lastVolume = val;
-                        },
-                      ),
-                    ),
-                  ),
+            const SizedBox(width: 8),
+
+            SizedBox(
+              width: 80.0,
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 2.0,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5.0),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10.0),
+                ),
+                child: Slider(
+                  value: volume,
+                  max: 100.0,
+                  activeColor: Colors.white,
+                  inactiveColor: Colors.white.withValues(alpha: 0.3),
+                  onChanged: (val) {
+                    widget.player.setVolume(val);
+                    if (val > 0) _lastVolume = val;
+                  },
                 ),
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
