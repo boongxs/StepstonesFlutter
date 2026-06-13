@@ -349,6 +349,7 @@ class UploadController extends ChangeNotifier {
     final fingerprint = await AudioFingerprintHelper.computeFingerprint(filePath);
     if (fingerprint.isEmpty) {
       LogService.w("No audio fingerprint for $filePath — skipping duplicate check.");
+      await db.updateAudioFingerprint(uploadedId, "");
       return;
     }
 

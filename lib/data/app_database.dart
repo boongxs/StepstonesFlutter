@@ -369,7 +369,7 @@ class AppDatabase extends _$AppDatabase {
     return (select(mediaItems)
       ..where((t) => t.mediaFolderPath.equals(folderPath))
       ..where((t) => t.fileType.equals('video') | t.fileType.equals('audio'))
-      ..where((t) => t.audioFingerprint.isNotNull())
+      ..where((t) => t.audioFingerprint.isNotNull() & t.audioFingerprint.isNotValue(""))
     ).get();
   }
 

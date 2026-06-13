@@ -261,6 +261,8 @@ class SyncController extends ChangeNotifier {
       if (fingerprint.isNotEmpty) {
         await db.updateAudioFingerprint(item.id, AudioFingerprintHelper.fingerprintToString(fingerprint));
         successCount++;
+      } else {
+        await db.updateAudioFingerprint(item.id, "");
       }
     }
 
