@@ -257,7 +257,7 @@ class SyncController extends ChangeNotifier {
     int successCount = 0;
     for (final item in items) {
       final sourcePath = p.join(folderPath, item.hashedFileName);
-      final fingerprint = await AudioFingerprintHelper.computeFingerprint(sourcePath);
+      final (:fingerprint, tooShort: _) = await AudioFingerprintHelper.computeFingerprint(sourcePath);
       if (fingerprint.isNotEmpty) {
         await db.updateAudioFingerprint(item.id, AudioFingerprintHelper.fingerprintToString(fingerprint));
         successCount++;

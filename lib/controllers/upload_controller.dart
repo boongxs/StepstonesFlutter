@@ -346,9 +346,13 @@ class UploadController extends ChangeNotifier {
   }
 
   Future<void> _checkAudioDuplicates(int uploadedId, String filePath, String folderPath) async {
-    final fingerprint = await AudioFingerprintHelper.computeFingerprint(filePath);
+    final (:fingerprint, :tooShort) = await AudioFingerprintHelper.computeFingerprint(filePath);
     if (fingerprint.isEmpty) {
-      LogService.w("No audio fingerprint for $filePath — skipping duplicate check.");
+      if (tooShort) {
+        LogService.w("Audio fingerprint skipped for $filePath — file is too short for Chromaprint to analyze (requires ~3+ seconds of audio).");
+      } else {
+        LogService.w("No audio fingerprint for $filePath — skipping duplicate check.");
+      }
       await db.updateAudioFingerprint(uploadedId, "");
       return;
     }

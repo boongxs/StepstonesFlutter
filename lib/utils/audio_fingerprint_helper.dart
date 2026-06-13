@@ -15,20 +15,22 @@ class _ComparisonRequest {
 }
 
 // Top-level function required by compute() — runs fpcalc in a background isolate.
-Future<List<int>> _runFpcalcInIsolate(String filePath) async {
+Future<({List<int> fingerprint, bool tooShort})> _runFpcalcInIsolate(String filePath) async {
   try {
     final result = await Process.run('fpcalc', ['-json', '-raw', filePath]);
     if (result.exitCode != 0) {
-      debugPrint("fpcalc failed (exit ${result.exitCode}) on $filePath: ${result.stderr}");
-      return [];
+      final stderr = result.stderr as String;
+      final tooShort = stderr.contains('Empty fingerprint');
+      debugPrint("fpcalc failed (exit ${result.exitCode}) on $filePath: $stderr");
+      return (fingerprint: <int>[], tooShort: tooShort);
     }
     final json = jsonDecode(result.stdout as String) as Map<String, dynamic>;
     final raw = json['fingerprint'] as List?;
-    if (raw == null || raw.isEmpty) return [];
-    return raw.cast<int>();
+    if (raw == null || raw.isEmpty) return (fingerprint: <int>[], tooShort: false);
+    return (fingerprint: raw.cast<int>(), tooShort: false);
   } catch (e) {
     debugPrint("fpcalc exception on $filePath: $e");
-    return [];
+    return (fingerprint: <int>[], tooShort: false);
   }
 }
 
@@ -78,7 +80,7 @@ int _hammingDistance32(int a, int b) {
 class AudioFingerprintHelper {
   AudioFingerprintHelper._();
 
-  static Future<List<int>> computeFingerprint(String filePath) =>
+  static Future<({List<int> fingerprint, bool tooShort})> computeFingerprint(String filePath) =>
       compute(_runFpcalcInIsolate, filePath);
 
   static Future<List<Map<String, dynamic>>> compareAll(
