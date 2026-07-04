@@ -167,7 +167,6 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
     final partial = _getLastPartial(text);
     if (partial.isEmpty) {
       _hideSuggestions();
-      if (text.trim().isEmpty) widget.onSearch?.call();
       return;
     }
     final overlay = Overlay.of(context);
@@ -215,7 +214,6 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
         widget.controller.selection = TextSelection.collapsed(offset: newText.length);
       }
     });
-    widget.onSearch?.call();
   }
 
   OverlayEntry _buildOverlay() {
@@ -330,15 +328,12 @@ class _PrimarySearchBarState extends State<PrimarySearchBar> {
                 hintStyle: const TextStyle(color: Colors.grey),
                 suffixIcon: Padding(
                   padding: const EdgeInsets.only(right: 5),
-                  child: Tooltip(
-                    message: 'Search',
-                    child: IconButton(
-                      onPressed: widget.onSearch,
-                      icon: const Icon(Icons.search_rounded),
-                      color: Colors.grey,
-                      iconSize: (widget.fontSize ?? 32) * 1.0,
-                      splashRadius: 24,
-                    ),
+                  child: IconButton(
+                    onPressed: widget.onSearch,
+                    icon: const Icon(Icons.search_rounded),
+                    color: Colors.grey,
+                    iconSize: (widget.fontSize ?? 32) * 1.0,
+                    splashRadius: 24,
                   ),
                 ),
               ),

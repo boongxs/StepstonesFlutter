@@ -242,11 +242,14 @@ SortField _currentSortField = SortField.dateAdded;
 
   Future<List<({String name, int count})>> getSuggestions(String partial, List<String> exclude) async {
     if (_session.mediaFolderPath == null) return [];
+
     _tagCache ??= await _database.getTagNamesInFolder(_session.mediaFolderPath!);
     final lower = partial.toLowerCase();
-    return _tagCache!
-        .where((t) => t.name.startsWith(lower) && !exclude.contains(t.name))
-        .toList();
+    final matches = _tagCache!
+      .where((t) => t.name.startsWith(lower) && !exclude.contains(t.name))
+      .toList()
+    ..sort((a, b) => b.count.compareTo(a.count));
+    return matches.take(5).toList();
   }
 
   Future<void> applySearch() async {
