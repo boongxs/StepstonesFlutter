@@ -34,7 +34,6 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   final Map<int, String?> _dateOverrides = {};
   final Map<int, String?> _timeOverrides = {};
   final TextEditingController _tagsController = TextEditingController();
-  final ScrollController _tagsScrollController = ScrollController();
   String _loadedTags = '';
 
   @override
@@ -61,7 +60,6 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
   @override
   void dispose() {
     _tagsController.dispose();
-    _tagsScrollController.dispose();
     _focusNode.dispose();
     _transformationController.dispose();
     _evictCurrentImage();
@@ -163,6 +161,23 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
     if (!mounted || _lastLoadedItemId != itemId) return;
     _loadedTags = tags;
     _tagsController.text = tags;
+  }
+
+  Future<void> _openTagsEditor() async {
+    final currentTags = _tagsController.text.trim().isEmpty
+      ? <String>[]
+      : _tagsController.text.trim().split(RegExp(r'\s+'));
+    
+    final result = await showDialog<List<String>>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => TagsEditorDialog(initialTags: currentTags),
+    );
+
+    if (result == null || !mounted) return;
+
+    _tagsController.text = result.join(' ');
+    await _saveTags();
   }
 
   Future<void> _saveTags() async {
@@ -416,6 +431,16 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // edit tags
+                              _ToolbarButton(
+                                icon: Icons.edit_outlined,
+                                color: const Color.fromARGB(255, 58, 182, 0),
+                                tooltip: "Edit tags",
+                                onPressed: _openTagsEditor,
+                              ),
+
+                              const SizedBox(width: 8),
+
                               // copy
                               _ToolbarButton(
                                 icon: Icons.content_copy_rounded, 
@@ -525,16 +550,6 @@ class _MediaViewerDialogState extends State<MediaViewerDialog> {
                             ),
                           ),
                         ),
-
-                      // tags panel
-                      Positioned(
-                        top: 20,
-                        left: 20,
-                        child: _TagsPanel(
-                          tagsController: _tagsController,
-                          scrollController: _tagsScrollController,
-                        ),
-                      ),
                     ],
                   );
                 },
@@ -634,68 +649,6 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// tags panel widget shown in Enlarge view
-class _TagsPanel extends StatelessWidget {
-  final TextEditingController tagsController;
-  final ScrollController scrollController;
-
-  const _TagsPanel({
-    required this.tagsController,
-    required this.scrollController,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {}, // swallow taps so they don't close the viewer
-      child: Container(
-        width: 250,
-        height: 220,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              child: Text(
-                "Tags",
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
-              ),
-            ),
-            const Divider(height: 1, thickness: 1, color: Colors.white12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Scrollbar(
-                  controller: scrollController,
-                  child: TextField(
-                    controller: tagsController,
-                    scrollController: scrollController,
-                    maxLines: null,
-                    expands: true,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: const InputDecoration(
-                      hintText: "Type space-separated tags here...",
-                      hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.all(4),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // private helper widget for media viewer's top-right toolbar
 class _ToolbarButton extends StatelessWidget {
   final IconData icon;
@@ -720,6 +673,346 @@ class _ToolbarButton extends StatelessWidget {
         backgroundColor: Colors.transparent,
         hoverColor: color.withValues(alpha: 0.2),
         padding: const EdgeInsets.all(8),
+      ),
+    );
+  }
+}
+
+// dialog for viewing, adding, and removing tags on a media item
+// shown via showDialog(...) -- returns the final List<String> of tags if
+// user pressed Save, or null if dismissed/cancelled
+class TagsEditorDialog extends StatefulWidget {
+  final List<String> initialTags;
+
+  const TagsEditorDialog({
+    super.key,
+    required this.initialTags,
+  });
+
+  @override
+  State<TagsEditorDialog> createState() => _TagsEditorDialogState();
+}
+
+class _TagsEditorDialogState extends State<TagsEditorDialog> {
+  late List<String> _tags;
+  final TextEditingController _newTagController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  double _lastMaxScrollExtent = 0;
+
+  static const _bgColor = Color(0xFF282828);
+  static const _pillColor = Color(0xFF9C9C9C);
+  static const _hintColor = Color(0xFF424242);
+
+  static const double _maxDialogHeight = 450;
+  static const double _titleSectionHeight = 48;
+  static const double _textFieldSectionHeight = 60;
+  static const double _buttonSectionHeight = 48;
+  static const double _maxTagsAreaHeight = _maxDialogHeight - _titleSectionHeight - _textFieldSectionHeight - _buttonSectionHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    _tags = List<String>.from(widget.initialTags);
+    _newTagController.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncScrollExtent());
+  }
+
+  @override
+  void dispose() {
+    _newTagController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _syncScrollExtent() {
+    if (_scrollController.hasClients) {
+      _lastMaxScrollExtent = _scrollController.position.maxScrollExtent;
+    }
+  }
+
+  void _addTag(String raw) {
+    final tag = raw.trim();
+    if (tag.isEmpty || _tags.contains(tag)) return;
+    setState(() => _tags.add(tag));
+    _newTagController.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeScrollToBottom());
+  }
+
+  void _removeTag(String tag) {
+    setState(() => _tags.remove(tag));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncScrollExtent());
+  }
+
+  // scrolls to the bottom only if content actually went into a new row
+  // if the added tag pill fit in the current row, scroll position is left untouched
+  void _maybeScrollToBottom() {
+    if (!_scrollController.hasClients) return;
+    final newMax = _scrollController.position.maxScrollExtent;
+    if (newMax > _lastMaxScrollExtent + 0.5) {
+      _scrollController.animateTo(
+        newMax,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+    _lastMaxScrollExtent = newMax;
+  }
+
+  void _handleCancel() {
+    Navigator.of(context).pop();
+  }
+
+  void _handleSave() {
+    final pending = _newTagController.text.trim();
+    final finalTags = List<String>.from(_tags);
+    if (pending.isNotEmpty && !finalTags.contains(pending)) {
+      finalTags.add(pending);
+    }
+    Navigator.of(context).pop(finalTags);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Container(
+        width: 600,
+        constraints: const BoxConstraints(maxHeight: _maxDialogHeight),
+        decoration: BoxDecoration(
+          color: _bgColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // title
+            SizedBox(
+              height: _titleSectionHeight,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "Tags",
+                    style: TextStyle(
+                      color: Colors.white, 
+                      fontSize: 20, 
+                      fontWeight: FontWeight.w600
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        
+            // tag pills area (scrollable, wraps into rows)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: _maxTagsAreaHeight),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _tags
+                          .map((t) => _TagPill(
+                              tag: t,
+                              pillColor: _pillColor,
+                              textColor: _bgColor,
+                              onRemove: () => _removeTag(t),
+                            ))
+                          .toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        
+            // tag writing text field
+            SizedBox(
+              height: _textFieldSectionHeight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: TextField(
+                  controller: _newTagController,
+                  autofocus: true,
+                  textAlignVertical: TextAlignVertical.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  cursorColor: Colors.white,
+                  onSubmitted: _addTag,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: _bgColor,
+                    contentPadding: const EdgeInsets.only(top: 8, bottom: 11),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(right: 10),
+                      child: Text(
+                        '#',
+                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    hintText: 'Create new tag',
+                    hintStyle: const TextStyle(color: _hintColor, fontSize: 14),
+                    border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                    enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                    focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                    suffixIconConstraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    suffixIcon: Visibility(
+                      visible: _newTagController.text.isNotEmpty,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: GestureDetector(
+                          onTap: () => _addTag(_newTagController.text),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: _pillColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add, size: 16, color: _bgColor),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        
+            // cancel, save row
+            SizedBox(
+              height: _buttonSectionHeight,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _DialogActionButton(label: "Cancel", onTap: _handleCancel),
+                  ),
+                  Container(width: 1, height: 24, color: Colors.white),
+                  Expanded(
+                    child: _DialogActionButton(label: "Save", onTap: _handleSave),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// individual tag pill
+// shows "#tag" normally, switches to "Xtag" on hover to indicate it's clickable for removal
+class _TagPill extends StatefulWidget {
+  final String tag;
+  final Color pillColor;
+  final Color textColor;
+  final VoidCallback onRemove;
+
+  const _TagPill({
+    required this.tag,
+    required this.pillColor,
+    required this.textColor,
+    required this.onRemove,
+  });
+
+  @override
+  State<_TagPill> createState() => _TagPillState();
+}
+
+class _TagPillState extends State<_TagPill> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayTag = widget.tag.length > 20 ? '${widget.tag.substring(0, 20)}...' : widget.tag;
+    final symbol = _hovered ? 'X' : '#';
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onRemove,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: widget.pillColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '$symbol$displayTag',
+            style: TextStyle(
+              color: widget.textColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// shared style for the Cancel / Save buttons
+class _DialogActionButton extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _DialogActionButton({
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  State<_DialogActionButton> createState() => _DialogActionButtonState();
+}
+
+class _DialogActionButtonState extends State<_DialogActionButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: _hovered ? const Color(0xFF3D3D3D) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            widget.label,
+            style: const TextStyle(
+              color: Colors.white, 
+              fontSize: 14, 
+              fontWeight: FontWeight.w500
+            ),
+          ),
+        ),
       ),
     );
   }
